@@ -17,7 +17,7 @@ class TcpClient():
   def server_loop(self):
     while True:
       try:
-        # data, cli_addr  = self.client.recvfrom(self.buffer_size)
+        data, cli_addr  = self.udp_server.recvfrom(self.buffer_size)
         print("[*] Received Data : {}".format(data))
       except:
         self.udp_server.close()
