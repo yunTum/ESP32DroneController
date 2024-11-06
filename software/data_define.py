@@ -4,7 +4,7 @@ class RemoteData():
   def __init__(self):
     self.chnum = 6
     self.rc_value = [1515] * self.chnum
-    self.rc_value[0] = 50 #Range 50 - 900
+    self.rc_value[0] = 50 #Range 50 - 1800
     self.seqno = 0
     
   def store_RC(self, in_value, out, offset):
