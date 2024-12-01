@@ -6,7 +6,7 @@ class TcpClient():
     self.server_port = 4211
     # self.listen_num = 5
     self.buffer_size = 1024
-    self.client_ip = '192.168.40.231'
+    self.client_ip = '192.168.40.234' # シリアル出力で表示されるIPを用いる
     self.client_port = 4210
     self.udp_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     self.client_address = (self.client_ip, self.client_port)

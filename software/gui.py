@@ -1,11 +1,11 @@
-import tkeasygui as te
+import TkEasyGUI as eg
 import network
 import threading
 import data_define
 
 class ControllerWindow():
   def __init__(self):
-    self.client = network.TcpClient()
+    self.client = None
     # 送信のみのため、今のところ非同期処理を加えない
     # self.network_thread = threading.Thread(target=self.client.server_loop)
     self.create_window()
@@ -13,35 +13,42 @@ class ControllerWindow():
     self.server_state = False
 
   def create_window(self):
+    # レイアウトの定義
+    self.layout = [
+        [
+          eg.Frame('Network', layout=[
+                [eg.Button('Connect', key='-CONNECT-', disabled=False)],
+                [eg.Button('Disconnect', key='-DISCONNECT-', disabled=True)]
+          ]),
+          eg.Frame('Roll & Pitch', layout=[
+              [eg.Slider(range=(1015, 2015), default_value=1515, orientation='h', size=(20, 10), key='-ROLL-',  enable_events=True),
+              eg.Slider(range=(2015,1015), default_value=1515, orientation='v', size=(10, 20), key='-PITCH-',  enable_events=True)],
+          ]),
+          eg.Frame('Rudder & Throttle', layout=[
+              [eg.Slider(range=(1015, 2015), default_value=1515, orientation='h', size=(20, 10), key='-RUDDER-',  enable_events=True),
+              eg.Slider(range=(1100,50), default_value=50, orientation='v', size=(10, 20), key='-THROTTLE-',  enable_events=True)],
+          ]),
+          eg.Frame('Channel', layout=[
+              [eg.Button('ARM', key='-ARM-'), eg.Text('DISARMED', key='-ARM-', size=(10, 0))],
+              [eg.Button('Radio6', key='-RADIO6-'), eg.Text('OFF', key='-SWRADIO6-')],
+              [eg.Button('Radio7', key='-RADIO7-'), eg.Text('OFF', key='-SWRADIO7-')],
+              [eg.Button('Default', key='-Default-')],
+          ]),
+        ]
+    ]
     # ウィンドウの生成
-    self.window = te.Window('Remote Control')
-
-    # ボタンとスライダーの追加
-    self.connect_button = te.Button(self.window, text='Connect', command=self.connect)
-    self.disconnect_button = te.Button(self.window, text='Disconnect', command=self.disconnect, state='disabled')
-    self.roll_slider = te.Scale(self.window, from_=256, to=2024, orient='horizontal', command=self.update_roll)
-    self.pitch_slider = te.Scale(self.window, from_=256, to=2024, orient='vertical', command=self.update_pitch)
-    self.rudder_slider = te.Scale(self.window, from_=256, to=2024, orient='horizontal', command=self.update_rudder)
-    self.throttle_slider = te.Scale(self.window, from_=256, to=2024, orient='vertical', command=self.update_throttle)
-
-      # レイアウトの配置
-      self.connect_button.pack()
-      self.disconnect_button.pack()
-      self.roll_slider.pack()
-      self.pitch_slider.pack()
-      self.rudder_slider.pack()
-      self.throttle_slider.pack()
+    self.window = eg.Window('Remote Control', self.layout, size=(1100, 200))
     
   def run(self):
     # self.network_thread.start()
     # イベントループ
     while True:
         event, values = self.window.read()
-        if event == sg.WINDOW_CLOSED:
+        if event == eg.WINDOW_CLOSED:
             break
         if event == '-CONNECT-':
           if (not self.server_state):
-            self.client.connect()
+            self.client = network.TcpClient()
             self.server_state = True
             self.window['-CONNECT-'].update(disabled=True)
             self.window['-DISCONNECT-'].update(disabled=False)
@@ -57,83 +64,63 @@ class ControllerWindow():
 
         elif event == '-PITCH-':
           val = values['-PITCH-']
-          self.resource_data.ch3 = val
-          send_data = 'CH2:' + str(self.resource_data.ch3) + '\r'
-          self.client.send(send_data.encode())
+          self.resource_data.rc_value[2] = int(val)
           print(f'PITCH: {val}')
 
         elif event == '-ROLL-':
           val = values['-ROLL-']
-          self.resource_data.ch4 = val
-          send_data = 'CH1:' + str(self.resource_data.ch4) + '\r'
-          self.client.send(send_data.encode())
+          self.resource_data.rc_value[1] = int(val)
           print(f'ROLL: {val}')
 
         elif event == '-THROTTLE-':
           val = values['-THROTTLE-']
-          self.resource_data.ch3 = val
-          send_data = 'CH3:' + str(self.resource_data.ch3) + '\r'
-          self.client.send(send_data.encode())
+          self.resource_data.rc_value[0] = int(val)
           print(f'Throttle: {val}')
 
         elif event == '-RUDDER-':
           val = values['-RUDDER-']
-          self.resource_data.ch4 = val
-          send_data = 'CH4:' + str(self.resource_data.ch4) + '\r'
-          self.client.send(send_data.encode())
+          self.resource_data.rc_value[3] = int(val)
           print(f'Rudder: {val}')
         
-        elif event == '-RADIO5-':
-          if (self.resource_data.ch5):
-            self.resource_data.ch5 = False
-            self.window['-SWRADIO5-'].update("OFF")
-            val = 256
+        elif event == '-ARM-':
+          if (self.resource_data.rc_value[4] > 1615):
+            self.resource_data.rc_value[4] = 1515
+            self.window['-ARM-'].update("DISARMED")
           else:
-            self.resource_data.ch5 = True
-            self.window['-SWRADIO5-'].update("ON")
-            val = 2000
-          self.btn_send(5, val)
+            self.resource_data.rc_value[4] = 2015
+            self.window['-ARM-'].update("ARMED")
         
         elif event == '-RADIO6-':
-          if (self.resource_data.ch6):
-            self.resource_data.ch6 = False
+          if (self.resource_data.rc_value[5] > 1615):
+            self.resource_data.rc_value[5] = 1515
             self.window['-SWRADIO6-'].update("OFF")
-            val = 256
           else:
-            self.resource_data.ch6 = True
+            self.resource_data.rc_value[5] = 2015
             self.window['-SWRADIO6-'].update("ON")
-            val = 2000
-          self.btn_send(6, val)
           
         elif event == '-RADIO7-':
-          if (self.resource_data.ch7):
-            self.resource_data.ch7 = False
-            self.window['-SWRADIO7-'].update("OFF")
-            val = 256
-          else:
-            self.resource_data.ch7 = True
-            self.window['-SWRADIO7-'].update("ON")
-            val = 2000
-          self.btn_send(7, val)
+          pass
           
-        elif event == '-RADIO8-':
-          if (self.resource_data.ch8):
-            self.resource_data.ch8 = False
-            self.window['-SWRADIO8-'].update("OFF")
-            val = 256
-          else:
-            self.resource_data.ch8 = True
-            self.window['-SWRADIO8-'].update("ON")
-            val = 2000
-          self.btn_send(8, val)
+        elif event == '-Default-':
+          self.resource_data.defalut_set()
+          self.window['-PITCH-'].update(value=1515)
+          self.window['-ROLL-'].update(value=1515)
+          self.window['-THROTTLE-'].update(value=50)
+          self.window['-RUDDER-'].update(value=1515)
+          self.resource_data.rc_value[4] = 1515
+          self.window['-ARM-'].update("DISARMED")
+          self.resource_data.rc_value[5] = 1515
+          self.window['-SWRADIO6-'].update("OFF")
+        
+        if (self.server_state):
+          self.send_udp()
 
     # ウィンドウを閉じる
     self.window.close()
   
-  def btn_send(self, channel, val):
-    send_data = 'CH' + str(channel) + ':' + str(val) + '\r'
-    self.client.send(send_data.encode())
-    print('Radio' + str(channel))
+  def send_udp(self):
+    send_data = self.resource_data.create_byte()
+    self.client.send(send_data)
 
 def main():
   gui = ControllerWindow()
