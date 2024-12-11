@@ -34,7 +34,7 @@ void setup()
   Serial.begin(115200);
   // pinMode(ADC_BAT, INPUT);
   pinMode(LED_YELLOW, OUTPUT);
-  // pinMode(LED_RED, OUTPUT);
+  pinMode(LED_RED, OUTPUT);
   // pinMode(LED_GREEN, OUTPUT);
   digitalWrite(LED_YELLOW, HIGH);
   delay(5000);
@@ -95,6 +95,8 @@ unsigned long oldT;
 float B_gyro = 0.1;
 char debugvalue;
 float battery_vol = 0.0;
+const int16_t sendInterval = 200;
+int16_t counter = 0;
 void loop() 
 { 
   float gx,gy,gz;
@@ -159,10 +161,16 @@ void loop()
   axisPID[ROLL]  = 10.0*roll_PID;
   axisPID[PITCH] = 10.0*pitch_PID;
   axisPID[YAW]   = 10.0*yaw_PID;
-  // sendDroneData();
   mix();
   if (debugvalue == 'S') Serial.printf("%4d %4d %4d %4d\n", servo[0], servo[1], servo[2], servo[3]);
+  // if (counter >= sendInterval)
+  // {
+  //   sendDroneData();
+  //   counter = 0;
+  // }
+  // counter++;
 
+  
   // calib only !
   /*
   if (debugvalue == 'C') 

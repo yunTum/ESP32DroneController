@@ -24,13 +24,11 @@ byte rxPacket[32];  // buffer for incoming packets
 
 uint8_t seqno;
 volatile boolean gotRC;
-uint32_t sendInterval = 50;
-uint32_t lastRC; 
-uint32_t nextSend; 
 
 uint8_t buffer[14];
+uint8_t sendBuffer[30];
 unsigned int rcUdpPort = 4211;  //  port to listen on
-
+bool success = false;
 void storeRC(int16_t in, uint8_t * out)
 {
   out[0] = in>>8;
@@ -41,6 +39,11 @@ void init_RC()
 {
   Udp.begin(localUdpPort);
   Serial.printf("UDP port %d\n", localUdpPort);
+  Serial.printf("Send Interval: %lu\n", sendInterval); 
+  // success = Udp.beginPacket("127.0.0.1", rcUdpPort);
+  // if (!success) {
+  //   Serial.println("UDP beginPacket failed");
+  // }
 }
 
 void rcvalCyclic()
@@ -87,42 +90,50 @@ void rcvalCyclic()
   }
 }
 
-// void sendDroneData() 
-// {
-//   uint32_t now; 
-//   delay(2);
-//   now = millis(); // actual time
-//   gotRC = true;
-//   if (gotRC)
-//   {
-//     gotRC = false;
-//     lastRC = now;
-    
-//     buffer[ 0] = 0x55;
-//     buffer[ 1] = seqno++;
-//     storeRC(rcValue[1],&buffer[ 2]);
-//     storeRC(rcValue[2],&buffer[ 4]);
-//     storeRC(rcValue[0],&buffer[ 6]);
-//     storeRC(rcValue[3],&buffer[ 8]);
-//     storeRC(rcValue[4],&buffer[10]);
-//     storeRC(rcValue[5],&buffer[12]);
+void sendDroneData() 
+{
+  if (counter != sendInterval | !success)
+  {
+    return;
+  }
+  // バッファサイズを30バイトに設定（15個の値 × 2バイト）
+  sendBuffer[0] = 0x55;
+  sendBuffer[1] = seqno++;
+  
+  // サーボ値
+  storeRC(servo[0], &sendBuffer[2]);
+  storeRC(servo[1], &sendBuffer[4]);
+  storeRC(servo[2], &sendBuffer[6]);
+  storeRC(servo[3], &sendBuffer[8]);
+  
+  // PID値
+  storeRC(roll_PID, &sendBuffer[10]);
+  storeRC(pitch_PID, &sendBuffer[12]);
+  storeRC(yaw_PID, &sendBuffer[14]);
+  
+  // IMU角度
+  storeRC(roll_IMU, &sendBuffer[16]);
+  storeRC(pitch_IMU, &sendBuffer[18]);
+  storeRC(yaw_IMU, &sendBuffer[20]);
+  
+  // ジャイロ値
+  storeRC(GyroX, &sendBuffer[22]);
+  storeRC(GyroY, &sendBuffer[24]);
+  storeRC(GyroZ, &sendBuffer[26]);
+  
+  // バッテリー電圧
+  battery_vol = getBattery();
+  storeRC(battery_vol, &sendBuffer[28]);
 
-//     if (now >= nextSend)
-//     {
-//       nextSend = now + sendInterval;
-//       Udp.beginPacket(WiFi.localIP(), localUdpPort);
-//       Serial.printf("%d\n", buffer);
-//       Udp.write(buffer, 14);
-//       Udp.endPacket();
-//     }
-//     digitalWrite(LED_YELLOW, HIGH);
-//   }
-//   else if (now >= lastRC + 250)
-//   {
-//     lastRC = now;
-//     digitalWrite(LED_YELLOW, !digitalRead(LED_YELLOW)); 
-//   }
-// }
+  Udp.write(sendBuffer, 30);  // 30バイトに変更
+  bool success = Udp.endPacket();
+  Serial.printf("Send attempt %s at time: %lu Size: %lu\n", 
+              success ? "SUCCESS" : "FAILED", counter, sizeof(sendBuffer));
+  // bufferをクリア
+  memset(sendBuffer, 0, sizeof(sendBuffer));
+  success = false;
+  // delay(10);
+}
 //-----------------------------------------------
 
 /*

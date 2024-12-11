@@ -2,7 +2,7 @@ import TkEasyGUI as eg
 import network
 import threading
 import data_define
-
+import socket
 class ControllerWindow():
   def __init__(self):
     self.client = None
@@ -10,7 +10,9 @@ class ControllerWindow():
     # self.network_thread = threading.Thread(target=self.client.server_loop)
     self.create_window()
     self.resource_data = data_define.RemoteData()
+    self.drone_data = data_define.DroneData()
     self.server_state = False
+    self.receive_thread = None
 
   def create_window(self):
     # レイアウトの定義
@@ -34,10 +36,14 @@ class ControllerWindow():
               [eg.Button('Radio7', key='-RADIO7-'), eg.Text('OFF', key='-SWRADIO7-')],
               [eg.Button('Default', key='-Default-')],
           ]),
+          eg.Frame('Drone Info', layout=[
+                [eg.Text('Battery: ---%', key='-BATTERY-')],
+                [eg.Text('Roll: ---', key='-IMU-')],
+            ]),
         ]
     ]
     # ウィンドウの生成
-    self.window = eg.Window('Remote Control', self.layout, size=(1100, 200))
+    self.window = eg.Window('Remote Control', self.layout, size=(1300, 200))
     
   def run(self):
     # self.network_thread.start()
@@ -52,35 +58,43 @@ class ControllerWindow():
             self.server_state = True
             self.window['-CONNECT-'].update(disabled=True)
             self.window['-DISCONNECT-'].update(disabled=False)
-            print('Server open')
+            # 受信スレッドの開始
+            # self.receive_thread = threading.Thread(target=self.receive_udp)
+            # self.receive_thread.daemon = True
+            # self.receive_thread.start()
+            print('Server Opened')
 
         elif event == '-DISCONNECT-':
           if (self.server_state):
-            self.client.close()
+            if self.client:
+              self.client.close()
+              self.client = None
+            if self.receive_thread:
+              self.receive_thread.join(timeout=2.0) 
             self.server_state = False
             self.window['-CONNECT-'].update(disabled=False)
             self.window['-DISCONNECT-'].update(disabled=True)
-            print('Server close')
+            print('Server Closed')
 
         elif event == '-PITCH-':
           val = values['-PITCH-']
           self.resource_data.rc_value[2] = int(val)
-          print(f'PITCH: {val}')
+          # print(f'PITCH: {val}')
 
         elif event == '-ROLL-':
           val = values['-ROLL-']
           self.resource_data.rc_value[1] = int(val)
-          print(f'ROLL: {val}')
+          # print(f'ROLL: {val}')
 
         elif event == '-THROTTLE-':
           val = values['-THROTTLE-']
           self.resource_data.rc_value[0] = int(val)
-          print(f'Throttle: {val}')
+          # print(f'Throttle: {val}')
 
         elif event == '-RUDDER-':
           val = values['-RUDDER-']
           self.resource_data.rc_value[3] = int(val)
-          print(f'Rudder: {val}')
+          # print(f'Rudder: {val}')
         
         elif event == '-ARM-':
           if (self.resource_data.rc_value[4] > 1615):
@@ -122,6 +136,39 @@ class ControllerWindow():
     send_data = self.resource_data.create_byte()
     self.client.send(send_data)
 
+  def receive_udp(self):
+    print("Receive thread start") 
+    while self.server_state:
+      try:
+          data, addr = self.client.udp_server.recvfrom(self.client.read_size)
+          print(f"Recv Size: {len(data)} bytes")
+          print(f"Receive: {addr} from")
+          print(f"Battery: {self.drone_data.battery}")
+          print(f"IMU Roll: {self.drone_data.imu['roll']}")
+          if len(data) != self.client.read_size:
+            print(f"Invalid data size: {len(data)} bytes, expected 30 bytes")
+            continue
+          if not self.client.remote_address:
+            self.client.remote_address = addr
+            print(f"Send Address is set: {addr}")
+          if self.drone_data.parse_data(data):
+              # データの更新が成功したら必要な処理を行う
+              # 例：表示の更新など
+              print(f"Battery: {self.drone_data.battery}")
+              print(f"IMU Roll: {self.drone_data.imu['roll']}")
+          if self.drone_data.parse_data(data):
+              # GUIの更新
+              self.window['-BATTERY-'].update(f"Battery: {self.drone_data.battery}%")
+              self.window['-IMU-'].update(f"Roll: {self.drone_data.imu['roll']:.1f}")
+      except socket.timeout:
+          # タイムアウトは正常なので、エラーメッセージを表示しない
+          continue
+      except Exception as e:
+          if not self.server_state:
+              break
+          print('Receive failed:', str(e))  # エラーの詳細を出力
+          import traceback
+          traceback.print_exc()  # スタックトレースを出力
 def main():
   gui = ControllerWindow()
 

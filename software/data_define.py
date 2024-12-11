@@ -26,3 +26,40 @@ class RemoteData():
   def defalut_set(self):
     self.rc_value = [1515] * self.chnum
     self.rc_value[0] = 50
+
+class DroneData():
+    def __init__(self):
+        self.servo = [0] * 4
+        self.pid = {'roll': 0, 'pitch': 0, 'yaw': 0}
+        self.imu = {'roll': 0, 'pitch': 0, 'yaw': 0}
+        self.gyro = {'x': 0, 'y': 0, 'z': 0}
+        self.battery = 0
+        self.seqno = 0
+    
+    def parse_data(self, data):
+        print(f"Data: {data} data[0]: {data[0]}")
+        if len(data) == 30 and data[0] == 0x55:
+            self.seqno = data[1]
+            # サーボ値の解析
+            for i in range(4):
+                self.servo[i] = (data[2+i*2] << 8) + data[3+i*2]
+            
+            # PID値の解析
+            self.pid['roll'] = (data[10] << 8) + data[11]
+            self.pid['pitch'] = (data[12] << 8) + data[13]
+            self.pid['yaw'] = (data[14] << 8) + data[15]
+            
+            # IMU角度の解析
+            self.imu['roll'] = (data[16] << 8) + data[17]
+            self.imu['pitch'] = (data[18] << 8) + data[19]
+            self.imu['yaw'] = (data[20] << 8) + data[21]
+            
+            # ジャイロ値の解析
+            self.gyro['x'] = (data[22] << 8) + data[23]
+            self.gyro['y'] = (data[24] << 8) + data[25]
+            self.gyro['z'] = (data[26] << 8) + data[27]
+            
+            # バッテリー電圧の解析
+            self.battery = (data[28] << 8) + data[29]
+            return True
+        return False
