@@ -34,16 +34,19 @@ void storeRC(int16_t in, uint8_t * out)
   out[0] = in>>8;
   out[1] = in&0xFF;
 }
+// float値用
+void storeRCFloat(float in, uint8_t * out)
+{
+  // 電圧を1000倍して整数に変換（例：3.72V → 3720）
+  int16_t converted = (int16_t)(in * 1000.0);
+  out[0] = converted>>8;
+  out[1] = converted&0xFF;
+}
 
 void init_RC()
 {
   Udp.begin(localUdpPort);
   Serial.printf("UDP port %d\n", localUdpPort);
-  Serial.printf("Send Interval: %lu\n", sendInterval); 
-  // success = Udp.beginPacket("127.0.0.1", rcUdpPort);
-  // if (!success) {
-  //   Serial.println("UDP beginPacket failed");
-  // }
 }
 
 void rcvalCyclic()
@@ -86,13 +89,13 @@ void rcvalCyclic()
   else 
   {
     Udp.flush(); 
-    // Serial.println("Wrong UDP size");
   }
 }
 
 void sendDroneData() 
 {
-  if (counter != sendInterval | !success)
+  bool success = Udp.beginPacket("XXXXXXXXXXXXXXXXXX", rcUdpPort);
+  if (!success)
   {
     return;
   }
@@ -107,28 +110,27 @@ void sendDroneData()
   storeRC(servo[3], &sendBuffer[8]);
   
   // PID値
-  storeRC(roll_PID, &sendBuffer[10]);
-  storeRC(pitch_PID, &sendBuffer[12]);
-  storeRC(yaw_PID, &sendBuffer[14]);
+  storeRCFloat(roll_PID, &sendBuffer[10]);
+  storeRCFloat(pitch_PID, &sendBuffer[12]);
+  storeRCFloat(yaw_PID, &sendBuffer[14]);
   
   // IMU角度
-  storeRC(roll_IMU, &sendBuffer[16]);
-  storeRC(pitch_IMU, &sendBuffer[18]);
-  storeRC(yaw_IMU, &sendBuffer[20]);
+  storeRCFloat(roll_IMU, &sendBuffer[16]);
+  storeRCFloat(pitch_IMU, &sendBuffer[18]);
+  storeRCFloat(yaw_IMU, &sendBuffer[20]);
   
   // ジャイロ値
-  storeRC(GyroX, &sendBuffer[22]);
-  storeRC(GyroY, &sendBuffer[24]);
-  storeRC(GyroZ, &sendBuffer[26]);
+  storeRCFloat(GyroX, &sendBuffer[22]);
+  storeRCFloat(GyroY, &sendBuffer[24]);
+  storeRCFloat(GyroZ, &sendBuffer[26]);
   
   // バッテリー電圧
   battery_vol = getBattery();
-  storeRC(battery_vol, &sendBuffer[28]);
-
+  storeRCFloat(battery_vol, &sendBuffer[28]);
   Udp.write(sendBuffer, 30);  // 30バイトに変更
-  bool success = Udp.endPacket();
-  Serial.printf("Send attempt %s at time: %lu Size: %lu\n", 
-              success ? "SUCCESS" : "FAILED", counter, sizeof(sendBuffer));
+  Udp.endPacket();
+  // Serial.printf("Send attempt %s at time: %lu Size: %lu\n", 
+  //             success ? "SUCCESS" : "FAILED", counter, sizeof(sendBuffer));
   // bufferをクリア
   memset(sendBuffer, 0, sizeof(sendBuffer));
   success = false;

@@ -2,11 +2,14 @@
 #include <WebServer.h>
 #include "Arduino.h"
 #include <EEPROM.h>
+#include <esp_wifi.h>
+#include <esp_bt.h>
+#include <esp_pm.h>
 
 WebServer server(80);
 
-const char* ssid = "JCOM_XBUW";
-const char* password = "681230514672";
+const char* ssid = "XXXXXXXXXXXXXXXXXX";
+const char* password = "XXXXXXXXXXXXXXXXXX";
 
 #define MINTHROTTLE 50
 #define CALSTEPS 256 // gyro and acc calibration steps
@@ -28,15 +31,37 @@ extern int16_t rcValue[];
 const float dt = 0.001 * float(LoopInterval); //in sec 
 unsigned long synctime;    
 
+// 省電力設定用の定数
+#define CPU_FREQ_LOW 80        // 最低CPU周波数(MHz)
+#define WIFI_TX_POWER 1        // WiFi送信電力(dBm) 
 void setup() 
 {
+  // WiFi送信電力を下げる（デフォルトは20dBm）
+  esp_wifi_set_max_tx_power(WIFI_TX_POWER);
+  // CPU周波数を下げる（デフォルトは240MHz）
+  setCpuFrequencyMhz(CPU_FREQ_LOW);
+  // 自動光パワーセーブモードを有効化
+  esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+  // 電源管理の設定
+  esp_pm_config_esp32_t pm_config = {
+    .max_freq_mhz = CPU_FREQ_LOW,
+    .min_freq_mhz = CPU_FREQ_LOW,
+    .light_sleep_enable = true
+  };
+  esp_pm_configure(&pm_config);
+  // 未使用のモジュールを無効化
+  esp_bt_controller_disable();  // Bluetoothを無効化
+  // ADCの解像度を下げる（電力消費を抑える）
+  analogSetWidth(10);  // 10ビットに設定
+
+
   EEPROM.begin(EEPROM_SIZE);  
   Serial.begin(115200);
   // pinMode(ADC_BAT, INPUT);
-  pinMode(LED_YELLOW, OUTPUT);
-  pinMode(LED_RED, OUTPUT);
-  // pinMode(LED_GREEN, OUTPUT);
-  digitalWrite(LED_YELLOW, HIGH);
+  // pinMode(LED_YELLOW, OUTPUT);
+  // pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  digitalWrite(LED_GREEN, LOW);
   delay(5000);
   // Init Modules
   initMot();
@@ -74,7 +99,7 @@ void setup()
   Serial.println("B - Battery");
 
   synctime = millis() + LoopInterval;
-  digitalWrite(LED_YELLOW, LOW);
+  // digitalWrite(LED_YELLOW, LOW);
 }
 
 bool armed, fmode;
@@ -95,8 +120,9 @@ unsigned long oldT;
 float B_gyro = 0.1;
 char debugvalue;
 float battery_vol = 0.0;
-const int16_t sendInterval = 200;
-int16_t counter = 0;
+int counter = 0;
+int sendInterval = 100;
+
 void loop() 
 { 
   float gx,gy,gz;
@@ -161,16 +187,13 @@ void loop()
   axisPID[ROLL]  = 10.0*roll_PID;
   axisPID[PITCH] = 10.0*pitch_PID;
   axisPID[YAW]   = 10.0*yaw_PID;
+  if (counter == sendInterval) {
+    sendDroneData();
+    counter = 0;
+  }
+  counter++;
   mix();
   if (debugvalue == 'S') Serial.printf("%4d %4d %4d %4d\n", servo[0], servo[1], servo[2], servo[3]);
-  // if (counter >= sendInterval)
-  // {
-  //   sendDroneData();
-  //   counter = 0;
-  // }
-  // counter++;
-
-  
   // calib only !
   /*
   if (debugvalue == 'C') 

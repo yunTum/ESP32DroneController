@@ -28,7 +28,7 @@ class ControllerWindow():
           ]),
           eg.Frame('Rudder & Throttle', layout=[
               [eg.Slider(range=(1015, 2015), default_value=1515, orientation='h', size=(20, 10), key='-RUDDER-',  enable_events=True),
-              eg.Slider(range=(1100,50), default_value=50, orientation='v', size=(10, 20), key='-THROTTLE-',  enable_events=True)],
+              eg.Slider(range=(1600,50), default_value=50, orientation='v', size=(10, 20), key='-THROTTLE-',  enable_events=True)],
           ]),
           eg.Frame('Channel', layout=[
               [eg.Button('ARM', key='-ARM-'), eg.Text('DISARMED', key='-ARM-', size=(10, 0))],
@@ -37,13 +37,22 @@ class ControllerWindow():
               [eg.Button('Default', key='-Default-')],
           ]),
           eg.Frame('Drone Info', layout=[
-                [eg.Text('Battery: ---%', key='-BATTERY-')],
-                [eg.Text('Roll: ---', key='-IMU-')],
+                [eg.Text('Battery: ---V', key='-BATTERY-')],
+                [eg.Text('Servo1: ---', key='-SERVO1-')],
+                [eg.Text('Servo2: ---', key='-SERVO2-')],
+                [eg.Text('Servo3: ---', key='-SERVO3-')],
+                [eg.Text('Servo4: ---', key='-SERVO4-')],
+                [eg.Text('IMU Roll: ---', key='-IMUROLL-')],
+                [eg.Text('IMU Pitch: ---', key='-IMUPITCH-')],
+                [eg.Text('IMU Yaw: ---', key='-IMUYAW-')],
+                [eg.Text('Gyro X: ---', key='-GYROX-')],
+                [eg.Text('Gyro Y: ---', key='-GYROY-')],
+                [eg.Text('Gyro Z: ---', key='-GYROZ-')],
             ]),
         ]
     ]
     # ウィンドウの生成
-    self.window = eg.Window('Remote Control', self.layout, size=(1300, 200))
+    self.window = eg.Window('Remote Control', self.layout, size=(1300, 400))
     
   def run(self):
     # self.network_thread.start()
@@ -59,9 +68,9 @@ class ControllerWindow():
             self.window['-CONNECT-'].update(disabled=True)
             self.window['-DISCONNECT-'].update(disabled=False)
             # 受信スレッドの開始
-            # self.receive_thread = threading.Thread(target=self.receive_udp)
-            # self.receive_thread.daemon = True
-            # self.receive_thread.start()
+            self.receive_thread = threading.Thread(target=self.receive_udp)
+            self.receive_thread.daemon = True
+            self.receive_thread.start()
             print('Server Opened')
 
         elif event == '-DISCONNECT-':
@@ -158,8 +167,17 @@ class ControllerWindow():
               print(f"IMU Roll: {self.drone_data.imu['roll']}")
           if self.drone_data.parse_data(data):
               # GUIの更新
-              self.window['-BATTERY-'].update(f"Battery: {self.drone_data.battery}%")
-              self.window['-IMU-'].update(f"Roll: {self.drone_data.imu['roll']:.1f}")
+              self.window['-BATTERY-'].update(f"Battery: {self.drone_data.battery:.2f}V")
+              self.window['-SERVO1-'].update(f"Servo1: {self.drone_data.servo[0]:.1f}")
+              self.window['-SERVO2-'].update(f"Servo2: {self.drone_data.servo[1]:.1f}")
+              self.window['-SERVO3-'].update(f"Servo3: {self.drone_data.servo[2]:.1f}")
+              self.window['-SERVO4-'].update(f"Servo4: {self.drone_data.servo[3]:.1f}")
+              self.window['-IMUROLL-'].update(f"Roll: {self.drone_data.imu['roll']:.1f}")
+              self.window['-IMUPITCH-'].update(f"Pitch: {self.drone_data.imu['pitch']:.1f}")
+              self.window['-IMUYAW-'].update(f"Yaw: {self.drone_data.imu['yaw']:.1f}")
+              self.window['-GYROX-'].update(f"Gyro X: {self.drone_data.gyro['x']:.1f}")
+              self.window['-GYROY-'].update(f"Gyro Y: {self.drone_data.gyro['y']:.1f}")
+              self.window['-GYROZ-'].update(f"Gyro Z: {self.drone_data.gyro['z']:.1f}")
       except socket.timeout:
           # タイムアウトは正常なので、エラーメッセージを表示しない
           continue

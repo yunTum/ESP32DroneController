@@ -50,16 +50,23 @@ class DroneData():
             self.pid['yaw'] = (data[14] << 8) + data[15]
             
             # IMU角度の解析
-            self.imu['roll'] = (data[16] << 8) + data[17]
-            self.imu['pitch'] = (data[18] << 8) + data[19]
-            self.imu['yaw'] = (data[20] << 8) + data[21]
+            imu_roll = (data[16] << 8) + data[17]
+            imu_pitch = (data[18] << 8) + data[19]
+            imu_yaw = (data[20] << 8) + data[21]
+            self.imu['roll'] = imu_roll / 1000
+            self.imu['pitch'] = imu_pitch / 1000
+            self.imu['yaw'] = imu_yaw / 1000
             
             # ジャイロ値の解析
-            self.gyro['x'] = (data[22] << 8) + data[23]
-            self.gyro['y'] = (data[24] << 8) + data[25]
-            self.gyro['z'] = (data[26] << 8) + data[27]
+            gyro_x = (data[22] << 8) + data[23]
+            gyro_y = (data[24] << 8) + data[25]
+            gyro_z = (data[26] << 8) + data[27]
+            self.gyro['x'] = gyro_x / 1000
+            self.gyro['y'] = gyro_y / 1000
+            self.gyro['z'] = gyro_z / 1000
             
             # バッテリー電圧の解析
-            self.battery = (data[28] << 8) + data[29]
+            battery_vol = (data[28] << 8) + data[29]
+            self.battery = battery_vol / 1000
             return True
         return False

@@ -5,20 +5,15 @@ int maxm = 1800; // for testing
 
 void mix()
 {
-  /*
-  Serial.print(rcValue[THR]);   Serial.print("  ");
-  Serial.print(axisPID[ROLL]);  Serial.print("  ");
-  Serial.print(axisPID[PITCH]); Serial.print("  ");
-  Serial.print(axisPID[YAW]);   Serial.println();
-  /**/ 
-  
+  // モーターごとの補正係数を追加
+  const float motor_correction[] = {1.0, 1.0, 1.0, 1.0};  // 必要に応じて調整
   if (armed & (rcValue[THR] > MINTHROTTLE))
   {
     int thro = rcValue[THR] - 15;
-    servo[0] = constrain(thro - axisPID[ROLL] + axisPID[PITCH] - axisPID[YAW],minm,maxm);
-    servo[1] = constrain(thro - axisPID[ROLL] - axisPID[PITCH] + axisPID[YAW],minm,maxm);
-    servo[2] = constrain(thro + axisPID[ROLL] + axisPID[PITCH] + axisPID[YAW],minm,maxm);
-    servo[3] = constrain(thro + axisPID[ROLL] - axisPID[PITCH] - axisPID[YAW],minm,maxm);
+    servo[0] = constrain(thro - axisPID[ROLL] - axisPID[PITCH] - axisPID[YAW],minm,maxm) * motor_correction[0];
+    servo[1] = constrain(thro - axisPID[ROLL] + axisPID[PITCH] + axisPID[YAW],minm,maxm) * motor_correction[1];
+    servo[2] = constrain(thro + axisPID[ROLL] - axisPID[PITCH] + axisPID[YAW],minm,maxm) * motor_correction[2];
+    servo[3] = constrain(thro + axisPID[ROLL] + axisPID[PITCH] - axisPID[YAW],minm,maxm) * motor_correction[3];
   }
   else 
   { 
@@ -32,7 +27,7 @@ void mix()
 const int MotPin0 = 33; //12;  //HR mot3 RightTop
 const int MotPin1 = 32; //13;  //VR mot2 RightBack
 const int MotPin2 = 4;  //15;  //HL mot4 LeftTop
-const int MotPin3 = 25; //14;  //VL mot1 LeftBacl
+const int MotPin3 = 25; //14;  //VL mot1 LeftBack
 const int MotChannel0 = 0;
 const int MotChannel1 = 1;   
 const int MotChannel2 = 2;
@@ -48,10 +43,14 @@ void writeMot()
 
 void initMot() 
 {
-  ledcSetup(MotChannel0, 15000, 11); // 500 hz PWM, 11-bit resolution
-  ledcSetup(MotChannel1, 15000, 11); // 500 hz PWM, 11-bit resolution
-  ledcSetup(MotChannel2, 15000, 11); // 500 hz PWM, 11-bit resolution
-  ledcSetup(MotChannel3, 15000, 11); // 500 hz PWM, 11-bit resolution
+  // ledcSetup(MotChannel0, 15000, 11); // 500 hz PWM, 11-bit resolution 720motor
+  // ledcSetup(MotChannel1, 15000, 11); // 500 hz PWM, 11-bit resolution 720motor
+  // ledcSetup(MotChannel2, 15000, 11); // 500 hz PWM, 11-bit resolution 720motor
+  // ledcSetup(MotChannel3, 15000, 11); // 500 hz PWM, 11-bit resolution 720motor
+  ledcSetup(MotChannel0, 24000, 11); // 500 hz PWM, 11-bit resolution
+  ledcSetup(MotChannel1, 24000, 11); // 500 hz PWM, 11-bit resolution
+  ledcSetup(MotChannel2, 24000, 11); // 500 hz PWM, 11-bit resolution
+  ledcSetup(MotChannel3, 24000, 11); // 500 hz PWM, 11-bit resolution
   ledcAttachPin(MotPin0, MotChannel0); 
   ledcAttachPin(MotPin1, MotChannel1); 
   ledcAttachPin(MotPin2, MotChannel2); 
