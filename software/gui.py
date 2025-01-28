@@ -122,7 +122,12 @@ class ControllerWindow():
             self.window['-SWRADIO6-'].update("ON")
           
         elif event == '-RADIO7-':
-          pass
+          if (self.resource_data.rc_value[6] > 1615):
+            self.resource_data.rc_value[6] = 1515
+            self.window['-SWRADIO7-'].update("OFF")
+          else:
+            self.resource_data.rc_value[6] = 2015
+            self.window['-SWRADIO7-'].update("ON")
           
         elif event == '-Default-':
           self.resource_data.defalut_set()
@@ -150,21 +155,21 @@ class ControllerWindow():
     while self.server_state:
       try:
           data, addr = self.client.udp_server.recvfrom(self.client.read_size)
-          print(f"Recv Size: {len(data)} bytes")
-          print(f"Receive: {addr} from")
-          print(f"Battery: {self.drone_data.battery}")
-          print(f"IMU Roll: {self.drone_data.imu['roll']}")
+          # print(f"Recv Size: {len(data)} bytes")
+          # print(f"Receive: {addr} from")
+          # print(f"Battery: {self.drone_data.battery}")
+          # print(f"IMU Roll: {self.drone_data.imu['roll']}")
           if len(data) != self.client.read_size:
             print(f"Invalid data size: {len(data)} bytes, expected 30 bytes")
             continue
           if not self.client.remote_address:
             self.client.remote_address = addr
             print(f"Send Address is set: {addr}")
-          if self.drone_data.parse_data(data):
-              # データの更新が成功したら必要な処理を行う
-              # 例：表示の更新など
-              print(f"Battery: {self.drone_data.battery}")
-              print(f"IMU Roll: {self.drone_data.imu['roll']}")
+          # if self.drone_data.parse_data(data):
+          #     # データの更新が成功したら必要な処理を行う
+          #     # 例：表示の更新など
+          #     print(f"Battery: {self.drone_data.battery}")
+          #     print(f"IMU Roll: {self.drone_data.imu['roll']}")
           if self.drone_data.parse_data(data):
               # GUIの更新
               self.window['-BATTERY-'].update(f"Battery: {self.drone_data.battery:.2f}V")

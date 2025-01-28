@@ -25,7 +25,8 @@ byte rxPacket[32];  // buffer for incoming packets
 uint8_t seqno;
 volatile boolean gotRC;
 
-uint8_t buffer[14];
+const int receivePacketSize = 16;
+uint8_t buffer[receivePacketSize];
 uint8_t sendBuffer[30];
 unsigned int rcUdpPort = 4211;  //  port to listen on
 bool success = false;
@@ -52,9 +53,9 @@ void init_RC()
 void rcvalCyclic()
 {
   int packetSize = Udp.parsePacket();
-  if (packetSize == 14)
+  if (packetSize == receivePacketSize)
   {
-    Udp.read(rxPacket, 14);
+    Udp.read(rxPacket, receivePacketSize);
     if (rxPacket[0] == 0x55)
     {
       rcValue[0] = (rxPacket[ 2]<<8) + rxPacket[ 3]; 
@@ -63,6 +64,7 @@ void rcvalCyclic()
       rcValue[3] = (rxPacket[ 8]<<8) + rxPacket[ 9]; 
       rcValue[4] = (rxPacket[10]<<8) + rxPacket[11]; 
       rcValue[5] = (rxPacket[12]<<8) + rxPacket[13]; 
+      rcValue[6] = (rxPacket[14]<<8) + rxPacket[15]; 
       if (debugvalue == 'r')
       {
         Serial.printf("%4d %4d %4d ",  rcValue[0], rcValue[1], rcValue[2]);
@@ -73,12 +75,15 @@ void rcvalCyclic()
       if (rcValue[4] > 1750) armed = true; 
       else                   armed = false; 
       if (rcValue[5] > 1750) fmode = true; 
-      else                   fmode = false; 
+      else                   fmode = false;
+      if (rcValue[6] > 1750) led = true; 
+      else                   led = false;
     
       // roll=0 pitch=1 thr=2 yaw=3  
       roll_rc  = 0.3 * float(rcValue[0]-1515);
       pitch_rc = 0.3 * float(rcValue[1]-1515);
       yaw_rc   = 0.3 * float(rcValue[3]-1515);
+      // throttle = rcValue[2];
     }
     else if (nextRCtime < millis()) 
     {

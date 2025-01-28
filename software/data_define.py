@@ -2,7 +2,7 @@
 # パケットを作成
 class RemoteData():
   def __init__(self):
-    self.chnum = 6
+    self.chnum = 7
     self.rc_value = [1515] * self.chnum
     self.rc_value[0] = 50 #Range 50 - 1800
     self.seqno = 0
@@ -12,7 +12,7 @@ class RemoteData():
     out[offset + 1] = in_value & 0xFF     # 下位バイト
   
   def create_byte(self):
-    buff = bytearray(14)
+    buff = bytearray(16)
     buff[0] = 0x55                            # チェック値
     buff[1] = self.seqno                      # シーケンス番号
     self.store_RC(self.rc_value[1], buff,  2) # ROLL
@@ -21,6 +21,7 @@ class RemoteData():
     self.store_RC(self.rc_value[3], buff,  8) # RUDDER
     self.store_RC(self.rc_value[4], buff, 10) # ARM
     self.store_RC(self.rc_value[5], buff, 12) # RADIO6
+    self.store_RC(self.rc_value[6], buff, 14) # RADIO7
     return buff
   
   def defalut_set(self):
@@ -37,7 +38,7 @@ class DroneData():
         self.seqno = 0
     
     def parse_data(self, data):
-        print(f"Data: {data} data[0]: {data[0]}")
+        # print(f"Data: {data} data[0]: {data[0]}")
         if len(data) == 30 and data[0] == 0x55:
             self.seqno = data[1]
             # サーボ値の解析

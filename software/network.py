@@ -7,7 +7,8 @@ class TcpClient():
     # self.listen_num = 5
     self.buffer_size = 1024
     self.read_size = 30
-    self.client_ip = '192.168.40.234' # シリアル出力で表示されるIPを用いる
+    # self.client_ip = '192.168.40.234' # シリアル出力で表示されるIPを用いる
+    self.client_ip = '192.168.40.39'
     self.client_port = 4210
     self.udp_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     self.udp_server.bind(('0.0.0.0', self.server_port))  # 受信用にバインド

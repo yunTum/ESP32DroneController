@@ -1,3 +1,6 @@
+/*
+UPDATE MARK 20240108
+*/
 #include <WiFi.h>
 #include <WebServer.h>
 #include "Arduino.h"
@@ -59,8 +62,9 @@ void setup()
   Serial.begin(115200);
   // pinMode(ADC_BAT, INPUT);
   // pinMode(LED_YELLOW, OUTPUT);
-  // pinMode(LED_RED, OUTPUT);
+  pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
+  digitalWrite(LED_RED, LOW);
   digitalWrite(LED_GREEN, LOW);
   delay(5000);
   // Init Modules
@@ -102,7 +106,7 @@ void setup()
   // digitalWrite(LED_YELLOW, LOW);
 }
 
-bool armed, fmode;
+bool armed, fmode, led;
 
 float GyroX,GyroY,GyroZ;
 float AccX, AccY, AccZ;
@@ -112,7 +116,8 @@ extern int16_t accADC[3];
 extern float roll_IMU, pitch_IMU, yaw_IMU;
 extern float roll_PID, pitch_PID, yaw_PID;
 extern float roll_des, pitch_des, yaw_des;
-extern float roll_rc, pitch_rc, yaw_rc; 
+extern float roll_rc, pitch_rc, yaw_rc;
+// extern float throttle;
 extern int16_t axisPID[3];
 extern uint16_t servo[];
 
@@ -121,7 +126,7 @@ float B_gyro = 0.1;
 char debugvalue;
 float battery_vol = 0.0;
 int counter = 0;
-int sendInterval = 100;
+int sendInterval = 50;
 
 void loop() 
 { 
@@ -147,7 +152,7 @@ void loop()
   rcvalCyclic();
 
   if (debugvalue == 'R') 
-    Serial.printf("%4.0f %4.0f %4.0f\n", roll_rc, pitch_rc, yaw_rc);  
+    Serial.printf("%4.0f %4.0f %4.0f  %d  %d  %d \n", roll_rc, pitch_rc, yaw_rc, armed, fmode, led);  
   
   roll_des  = roll_rc;
   pitch_des = pitch_rc;
@@ -182,6 +187,9 @@ void loop()
   if (fmode) controlANG();
   controlRATE();
   
+  if (led) digitalWrite(LED_RED, HIGH);
+  else      digitalWrite(LED_RED, LOW);
+
   if (debugvalue == 'P') Serial.printf("%4.0f %4.0f %4.0f \n", roll_PID, pitch_PID, yaw_PID);
 
   axisPID[ROLL]  = 10.0*roll_PID;
