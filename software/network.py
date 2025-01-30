@@ -6,7 +6,7 @@ class TcpClient():
     self.server_port = 4211
     # self.listen_num = 5
     self.buffer_size = 1024
-    self.read_size = 30
+    self.read_size = 34
     # self.client_ip = '192.168.40.234' # シリアル出力で表示されるIPを用いる
     self.client_ip = '192.168.40.39'
     self.client_port = 4210

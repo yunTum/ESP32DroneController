@@ -48,6 +48,8 @@ class ControllerWindow():
                 [eg.Text('Gyro X: ---', key='-GYROX-')],
                 [eg.Text('Gyro Y: ---', key='-GYROY-')],
                 [eg.Text('Gyro Z: ---', key='-GYROZ-')],
+                [eg.Text('Altitude: ---m', key='-ALTITUDE-')],
+                [eg.Text('Temperature: ---℃', key='-TEMPERATURE-')],
             ]),
         ]
     ]
@@ -183,6 +185,8 @@ class ControllerWindow():
               self.window['-GYROX-'].update(f"Gyro X: {self.drone_data.gyro['x']:.1f}")
               self.window['-GYROY-'].update(f"Gyro Y: {self.drone_data.gyro['y']:.1f}")
               self.window['-GYROZ-'].update(f"Gyro Z: {self.drone_data.gyro['z']:.1f}")
+              self.window['-ALTITUDE-'].update(f"Altitude: {self.drone_data.altitude:.1f}m")
+              self.window['-TEMPERATURE-'].update(f"Temperature: {self.drone_data.temperature:.1f}℃")
       except socket.timeout:
           # タイムアウトは正常なので、エラーメッセージを表示しない
           continue

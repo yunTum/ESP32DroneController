@@ -138,13 +138,15 @@ void sendDroneData()
 
   // 温度
   storeRCFloat(temperature, &sendBuffer[32]);
-  
+
   Udp.write(sendBuffer, 34);  // 34バイト
   Udp.endPacket();
-
+  // Serial.printf("Send attempt %s at time: %lu Size: %lu\n", 
+  //             success ? "SUCCESS" : "FAILED", counter, sizeof(sendBuffer));
   // bufferをクリア
   memset(sendBuffer, 0, sizeof(sendBuffer));
   success = false;
+  // delay(10);
 }
 //-----------------------------------------------
 
