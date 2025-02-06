@@ -19,13 +19,13 @@ void handleCmd()
     else if (server.argName(i) == "KI") 
       Ki_rate = server.arg(i).toFloat();
     else if (server.argName(i) == "KD") 
-      Kd_rate = 0.1*server.arg(i).toFloat();
+      Kd_rate = server.arg(i).toFloat();
     else if (server.argName(i) == "KPy") 
       Kp_yaw = server.arg(i).toFloat();
     else if (server.argName(i) == "KIy") 
       Ki_yaw = server.arg(i).toFloat();
     else if (server.argName(i) == "KDy") 
-      Kd_yaw = 0.1*server.arg(i).toFloat();
+      Kd_yaw = server.arg(i).toFloat();
     else if (server.argName(i) == "KPa") 
       Kp_ang = server.arg(i).toFloat();
     else if (server.argName(i) == "KIa") 
@@ -64,7 +64,7 @@ void handleCmd()
   out += "\">&emsp;\n";
   out += "KD\n";
   out += "<input type=\"number\" name=\"KD\" step=\"0.01\" style=\"width:4em\" value=\"";
-  out += 10.0*Kd_rate;
+  out += Kd_rate;
   out += "\">&emsp;\n";
   out += "<input type=\"submit\"><br>\n";
   out += "</form>\n";
@@ -81,11 +81,12 @@ void handleCmd()
   out += "\">&emsp;\n";
   out += "KD\n";
   out += "<input type=\"number\" name=\"KDy\" step=\"0.01\" style=\"width:4em\" value=\"";
-  out += 10.0*Kd_yaw;
+  out += Kd_yaw;
   out += "\">&emsp;\n";
   out += "<input type=\"submit\"><br>\n";
   out += "</form>\n";
   out += "<br>";
+
 
   out += "<form method=\"post\">\n";
   out += "Ang&emsp; KP\n";

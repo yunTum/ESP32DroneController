@@ -7,7 +7,7 @@ float q2 = 0.0f;
 float q3 = 0.0f;
 
 //Filter parameters - Defaults tuned for 2kHz loop rate; Do not touch unless you know what you are doing:
-float B_madgwick = 0.04;  //Madgwick filter parameter
+float B_madgwick = 0.5;  //Madgwick filter parameter
 
 float invSqrt(float x);
 
@@ -90,8 +90,8 @@ void Madgwick6DOF(float gx, float gy, float gz, float ax, float ay, float az, fl
 
   //Compute angles
   roll_IMU = atan2(q0*q1 + q2*q3, 0.5f - q1*q1 - q2*q2)*57.29577951; //degrees
-  pitch_IMU = asin(constrain(-2.0f * (q1*q3 - q0*q2),-0.999999,0.999999))*57.29577951; //degrees
-  yaw_IMU = -atan2(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3)*57.29577951; //degrees
+  pitch_IMU = -asin(constrain(-2.0f * (q1*q3 - q0*q2),-0.999999,0.999999))*57.29577951; //degrees
+  yaw_IMU = atan2(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3)*57.29577951; //degrees
 }
 
 float invSqrt(float x) 

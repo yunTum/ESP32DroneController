@@ -25,9 +25,9 @@ byte rxPacket[32];  // buffer for incoming packets
 uint8_t seqno;
 volatile boolean gotRC;
 
-const int receivePacketSize = 16;
+const int receivePacketSize = 18;
 uint8_t buffer[receivePacketSize];
-uint8_t sendBuffer[34];
+uint8_t sendBuffer[54];
 unsigned int rcUdpPort = 4211;  //  port to listen on
 bool success = false;
 void storeRC(int16_t in, uint8_t * out)
@@ -42,6 +42,16 @@ void storeRCFloat(float in, uint8_t * out)
   int16_t converted = (int16_t)(in * 1000.0);
   out[0] = converted>>8;
   out[1] = converted&0xFF;
+}
+
+// 符号付きfloat値用
+void storeRCFloatSigned(float in, uint8_t * out)
+{
+  uint16_t converted = abs((int16_t)(in * 100.0));
+  uint8_t sign = (in < 0) ? 1 : 0;  // 符号情報
+  out[0] = sign;  // 符号を別バイトで送信
+  out[1] = (converted >> 8) & 0xFF;  // 上位8ビット
+  out[2] = converted & 0xFF;         // 下位8ビット
 }
 
 void init_RC()
@@ -65,10 +75,12 @@ void rcvalCyclic()
       rcValue[4] = (rxPacket[10]<<8) + rxPacket[11]; 
       rcValue[5] = (rxPacket[12]<<8) + rxPacket[13]; 
       rcValue[6] = (rxPacket[14]<<8) + rxPacket[15]; 
+      rcValue[7] = (rxPacket[16]<<8) + rxPacket[17]; 
       if (debugvalue == 'r')
       {
         Serial.printf("%4d %4d %4d ",  rcValue[0], rcValue[1], rcValue[2]);
-        Serial.printf("%4d %4d %4d \n",rcValue[3], rcValue[4], rcValue[5]);
+        Serial.printf("%4d %4d %4d ",rcValue[3], rcValue[4], rcValue[5]);
+        Serial.printf("%4d %4d \n",rcValue[6], rcValue[7]);
       }
      
       nextRCtime = millis() + 250; // 250ms
@@ -78,7 +90,10 @@ void rcvalCyclic()
       else                   fmode = false;
       if (rcValue[6] > 1750) led = true; 
       else                   led = false;
+      if (rcValue[7] > 1750) calibrateRequest = true; 
+      else                   calibrateRequest = false;
     
+
       // roll=0 pitch=1 thr=2 yaw=3  
       roll_rc  = 0.3 * float(rcValue[0]-1515);
       pitch_rc = 0.3 * float(rcValue[1]-1515);
@@ -115,31 +130,40 @@ void sendDroneData()
   storeRC(servo[3], &sendBuffer[8]);
   
   // PID値
-  storeRCFloat(roll_PID, &sendBuffer[10]);
-  storeRCFloat(pitch_PID, &sendBuffer[12]);
-  storeRCFloat(yaw_PID, &sendBuffer[14]);
+  storeRCFloatSigned(roll_PID, &sendBuffer[10]);
+  storeRCFloatSigned(pitch_PID, &sendBuffer[13]);
+  storeRCFloatSigned(yaw_PID, &sendBuffer[16]);
   
   // IMU角度
-  storeRCFloat(roll_IMU, &sendBuffer[16]);
-  storeRCFloat(pitch_IMU, &sendBuffer[18]);
-  storeRCFloat(yaw_IMU, &sendBuffer[20]);
-  
+  storeRCFloatSigned(roll_IMU, &sendBuffer[19]);
+  storeRCFloatSigned(pitch_IMU, &sendBuffer[22]);
+  storeRCFloatSigned(yaw_IMU, &sendBuffer[25]);
+
   // ジャイロ値
-  storeRCFloat(GyroX, &sendBuffer[22]);
-  storeRCFloat(GyroY, &sendBuffer[24]);
-  storeRCFloat(GyroZ, &sendBuffer[26]);
+  storeRCFloatSigned(GyroX, &sendBuffer[28]);
+  storeRCFloatSigned(GyroY, &sendBuffer[31]);
+  storeRCFloatSigned(GyroZ, &sendBuffer[34]);
   
   // バッテリー電圧
   battery_vol = getBattery();
-  storeRCFloat(battery_vol, &sendBuffer[28]);
+  storeRCFloat(battery_vol, &sendBuffer[37]);
+
 
   // 高度
-  storeRCFloat(altitude, &sendBuffer[30]);
+  storeRCFloat(0, &sendBuffer[39]);
 
   // 温度
-  storeRCFloat(temperature, &sendBuffer[32]);
-  
-  Udp.write(sendBuffer, 34);  // 34バイト
+  storeRCFloat(0, &sendBuffer[41]);
+
+  // キャリブレーションリクエスト
+  storeRC(calibrateRequest, &sendBuffer[43]);
+
+  // 加速度値 
+  storeRCFloatSigned(AccX, &sendBuffer[45]);
+  storeRCFloatSigned(AccY, &sendBuffer[48]);
+  storeRCFloatSigned(AccZ, &sendBuffer[51]);
+
+  Udp.write(sendBuffer, 54);  // 54バイト
   Udp.endPacket();
 
   // bufferをクリア

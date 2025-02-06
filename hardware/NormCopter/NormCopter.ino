@@ -11,8 +11,8 @@ UPDATE MARK 20240108
 
 WebServer server(80);
 
-const char* ssid = "XXXXXXXXXXXXXXXXXX";
-const char* password = "XXXXXXXXXXXXXXXXXX";
+const char* ssid = "****************";
+const char* password = "****************";
 
 #define MINTHROTTLE 50
 #define CALSTEPS 256 // gyro and acc calibration steps
@@ -33,6 +33,17 @@ extern int16_t rcValue[];
 #define LoopInterval 4 // minimum 2ms
 const float dt = 0.001 * float(LoopInterval); //in sec 
 unsigned long synctime;    
+
+// ログ記録関連の変数
+bool isHeader = true;
+const int LOG_INTERVAL = 20; // 何回のループに1回ログを取るか
+int logCounter = 0;
+bool isDetailLog = false;
+
+extern float Kp_rate, Ki_rate, Kd_rate;
+extern float Kp_yaw, Ki_yaw, Kd_yaw;
+extern float Kp_ang, Ki_ang, Kd_ang;
+extern float Kp_ayw, Ki_ayw, Kd_ayw;
 
 // 省電力設定用の定数
 #define CPU_FREQ_LOW 80        // 最低CPU周波数(MHz)
@@ -101,12 +112,14 @@ void setup()
   Serial.println("P - PID");
   Serial.println("S - Servo");
   Serial.println("B - Battery");
+  Serial.println("L - Logging");
+  Serial.println("W - PID Settings");
 
   synctime = millis() + LoopInterval;
   // digitalWrite(LED_YELLOW, LOW);
 }
 
-bool armed, fmode, led;
+bool armed, fmode, led, calibrateRequest;
 
 float GyroX,GyroY,GyroZ;
 float AccX, AccY, AccZ;
@@ -126,7 +139,7 @@ float B_gyro = 0.1;
 char debugvalue;
 float battery_vol = 0.0;
 int counter = 0;
-int sendInterval = 50;
+int sendInterval = 10;
 
 void loop() 
 { 
@@ -183,8 +196,12 @@ void loop()
   if (debugvalue == 'M') 
     Serial.printf("%4.0f %4.0f %4.0f \n", roll_IMU, pitch_IMU, yaw_IMU);
 
-  fmode = true; // test
-  if (fmode) controlANG();
+  // fmode = true; // test
+  if (fmode) {
+    controlANG();
+  } else {
+    controlStable();
+  }
   controlRATE();
   
   if (led) digitalWrite(LED_RED, HIGH);
@@ -199,6 +216,67 @@ void loop()
     sendDroneData();
     counter = 0;
   }
+
+  // ロギング開始/停止のコマンドを追加
+  if (debugvalue == 'L') {
+    logCounter = 0;
+    if(isHeader) {
+      // ヘッダー行を送信
+
+      Serial.println("DATA,gyroADC_X,gyroADC_Y,gyroADC_Z,accADC_X,accADC_Y,accADC_Z,GyroX,GyroY,GyroZ,AccX,AccY,AccZ,roll_IMU,pitch_IMU,yaw_IMU,roll_PID,pitch_PID,yaw_PID");
+    }
+    isHeader = false;
+    // データロギング
+    if(logCounter++ % LOG_INTERVAL == 0) {
+      if (isDetailLog) {
+        Serial.printf("DATA,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+          gyroADC[0], gyroADC[1], gyroADC[2],
+          accADC[0], accADC[1], accADC[2],
+          GyroX, GyroY, GyroZ,
+          AccX, AccY, AccZ,
+          roll_IMU, pitch_IMU, yaw_IMU,
+          roll_PID, pitch_PID, yaw_PID);
+      }
+      else {
+        Serial.printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+          GyroX, GyroY, GyroZ,
+          roll_PID, pitch_PID, yaw_PID);
+      }
+    }
+    // if((logCounter++ % LOG_INTERVAL == 0) & (fmode == false)) {
+    //   Serial.printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+    //     GyroX, GyroY, GyroZ,
+    //     roll_PID, pitch_PID, yaw_PID);
+    // } else if((logCounter++ % LOG_INTERVAL == 0) & (fmode == true)) {
+    //   Serial.printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+    //     roll_IMU, pitch_IMU, yaw_IMU,
+    //     roll_PID, pitch_PID, yaw_PID);
+    // }
+  }
+
+  if (debugvalue == 'W') {
+    Serial.println("--------------------------------");
+    Serial.println("Rate Settings");
+    Serial.println("Kp_rate: " + String(Kp_rate));
+    Serial.println("Ki_rate: " + String(Ki_rate));
+    Serial.println("Kd_rate: " + String(Kd_rate));
+    Serial.println("Yaw Settings");
+    Serial.println("Kp_yaw: " + String(Kp_yaw));
+    Serial.println("Ki_yaw: " + String(Ki_yaw));
+    Serial.println("Kd_yaw: " + String(Kd_yaw));
+    Serial.println("Ang Settings");
+    Serial.println("Kp_ang: " + String(Kp_ang));
+    Serial.println("Ki_ang: " + String(Ki_ang));
+    Serial.println("Kd_ang: " + String(Kd_ang));
+    Serial.println("Ang-Yaw Settings");
+    Serial.println("Kp_ayw: " + String(Kp_ayw));
+    Serial.println("Ki_ayw: " + String(Ki_ayw));
+    Serial.println("Kd_ayw: " + String(Kd_ayw));
+    Serial.println("--------------------------------");
+    
+    debugvalue = ' ';
+  }
+
   counter++;
   mix();
   if (debugvalue == 'S') Serial.printf("%4d %4d %4d %4d\n", servo[0], servo[1], servo[2], servo[3]);

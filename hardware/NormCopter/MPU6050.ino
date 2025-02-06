@@ -1,8 +1,8 @@
 #include <Wire.h>
 
-#define MPU6050_ADDRESS 0x68 
-  #define SMPLRT_DIV 0
-  #define DLPF_CFG   4
+#define MPU6050_ADDRESS 0x68
+#define SMPLRT_DIV 0
+#define DLPF_CFG   4
 
 #define ACCRESO 4096
 int16_t gyroADC[3];
@@ -33,7 +33,7 @@ void i2cWriteByte(uint8_t Address, uint8_t Register, uint8_t Data)
 
 #define ADDRESS 0x03
 int calibratingG = CALSTEPS;
-int calibratingA = 0;
+int calibratingA = CALSTEPS;
 int16_t gyroZero[3] = {0,0,0};
 int16_t accZero[3] = {0,0,0};
 
