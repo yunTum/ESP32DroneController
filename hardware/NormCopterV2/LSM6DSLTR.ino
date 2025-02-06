@@ -5,6 +5,15 @@
 #define CALSTEPS 512  // キャリブレーションのサンプル数
 #define ACCRESO 4096  // 加速度センサーの分解能
 
+// サンプリング周波数の設定
+#define ODR_XL_26Hz    0x30  // 加速度センサー: 26Hz
+#define ODR_XL_208Hz   0x4C  // 加速度センサー: 208Hz
+#define ODR_XL_416Hz   0x5C  // 加速度センサー: 416Hz
+
+#define ODR_G_26Hz     0x30  // ジャイロセンサー: 26Hz
+#define ODR_G_208Hz    0x4C  // ジャイロセンサー: 208Hz
+#define ODR_G_416Hz    0x5C  // ジャイロセンサー: 416Hz
+
 // 軸の定義
 #define ROLL     0
 #define PITCH    1
@@ -29,8 +38,11 @@ float gyro_history[3][FILTER_SIZE] = {0};
 int filter_index = 0;
 
 // センサーの向きを定義
-#define ACC_ORIENTATION(X, Y, Z)  {accADC[PITCH] = -X; accADC[ROLL] = Y; accADC[YAW] = Z;}
-#define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] = Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
+// pitch：上向きが正
+// roll：右向きが正
+// yaw：時計回りが正
+#define ACC_ORIENTATION(X, Y, Z)  {accADC[PITCH] = -X; accADC[ROLL] = Y; accADC[YAW] = -Z;}
+#define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] = Y; gyroADC[PITCH] = -X; gyroADC[YAW] = Z;}
 
 // レジスタアドレス
 #define WHO_AM_I      0x0F
@@ -64,23 +76,21 @@ int filter_index = 0;
 #define ACC_SCALE_8G   0x0C  // ±8g
 #define ACC_SCALE_16G  0x04  // ±16g
 
-#define GYRO_SCALE GYRO_SCALE_2000
-#define ACC_SCALE ACC_SCALE_2G
+#define GYRO_SCALE GYRO_SCALE_250
+#define ACC_SCALE ACC_SCALE_4G
 
 // 現在の設定
-#define GYRO_SCALE GYRO_SCALE_2000
 #if GYRO_SCALE == GYRO_SCALE_250
-    #define GYRO_SCALE_FACTOR 8.75f  // mdps/LSB
+    #define GYRO_SCALE_FACTOR 8.750f  // mdps/LSB
 #elif GYRO_SCALE == GYRO_SCALE_500
-    #define GYRO_SCALE_FACTOR 17.5f  // mdps/LSB
+    #define GYRO_SCALE_FACTOR 17.50f  // mdps/LSB
 #elif GYRO_SCALE == GYRO_SCALE_1000
-    #define GYRO_SCALE_FACTOR 35.0f  // mdps/LSB
+    #define GYRO_SCALE_FACTOR 35.00f  // mdps/LSB
 #elif GYRO_SCALE == GYRO_SCALE_2000
-    #define GYRO_SCALE_FACTOR 70.0f  // mdps/LSB
+    #define GYRO_SCALE_FACTOR 70.00f  // mdps/LSB
 #endif
 
 // 現在の設定
-#define ACC_SCALE ACC_SCALE_2G
 #if ACC_SCALE == ACC_SCALE_2G
     #define ACC_SCALE_FACTOR 0.061f  // mg/LSB
 #elif ACC_SCALE == ACC_SCALE_4G
@@ -141,7 +151,7 @@ void GYRO_Common() {
         }
         calibratingG--;
         if (calibratingG == 0) {
-            Serial.println("ジャイロキャリブレーション完了:");
+            Serial.println("Gyro Calibrated:");
             Serial.printf("X: %d  Y: %d  Z: %d\n", gyroZero[0], gyroZero[1], gyroZero[2]);
         }
     }
@@ -190,12 +200,11 @@ void ACC_Common() {
                 accZero[axis] = a[axis]/CALSTEPS;
             }
             accZero[2] -= ACCRESO;
-            Serial.printf("%d  %d  %d\n", accZero[0], accZero[1], accZero[2]);
             storeacc();
         }
         calibratingA--;
         if (calibratingA == 0) {
-            Serial.println("加速度キャリブレーション完了:");
+            Serial.println("Acc Calibrated:");
             Serial.printf("X: %d  Y: %d  Z: %d\n", accZero[0], accZero[1], accZero[2]);
         }
     }
@@ -211,8 +220,6 @@ void ACC_Common() {
         if (axis == PITCH) AccY = filtered_acc[axis];
         if (axis == YAW) AccZ = filtered_acc[axis];
     }
-    // Serial.printf("%f  %f  %f\n", AccX, AccY, AccZ);
-    // Serial.printf("%f  %f  %f\n", filtered_acc[0], filtered_acc[1], filtered_acc[2]);
     filter_index = (filter_index + 1) % FILTER_SIZE;
 }
 
@@ -233,7 +240,7 @@ void GyroAcc_getADC() {
     float gyro_x_dps = gyro_x * GYRO_SCALE_FACTOR / 1000.0f;
     float gyro_y_dps = gyro_y * GYRO_SCALE_FACTOR / 1000.0f;
     float gyro_z_dps = gyro_z * GYRO_SCALE_FACTOR / 1000.0f;
-    
+
     GYRO_ORIENTATION(gyro_x_dps, gyro_y_dps, gyro_z_dps);
     GYRO_Common();
     
@@ -242,13 +249,13 @@ void GyroAcc_getADC() {
     int16_t acc_y = (int16_t)((rawADC[9] << 8) | rawADC[8]);
     int16_t acc_z = (int16_t)((rawADC[11] << 8) | rawADC[10]);
 
-    // mg単位に変換してからG単位に変換
-    float acc_x_g = acc_x * ACC_SCALE_FACTOR / 1000.0f;  // G単位に変換
-    float acc_y_g = acc_y * ACC_SCALE_FACTOR / 1000.0f;
-    float acc_z_g = acc_z * ACC_SCALE_FACTOR / 1000.0f;
+    // スケール変換を適用（mG → G）
+    float acc_x_g = acc_x * ACC_SCALE_FACTOR;
+    float acc_y_g = acc_y * ACC_SCALE_FACTOR;
+    float acc_z_g = acc_z * ACC_SCALE_FACTOR;
 
     // 生の16ビット値をそのまま使用
-    ACC_ORIENTATION(acc_x, acc_x, acc_x);
+    ACC_ORIENTATION(acc_x_g, acc_y_g, acc_z_g);
     ACC_Common();
 }
 
@@ -260,12 +267,36 @@ void LSM6DSLTR_init() {
     else Serial.println("LSM6DSLTR ID Failed");
 
     // センサーの高精度設定
-    i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL1_XL, 0x5C | ACC_SCALE);  // 加速度: ±4g, 416Hz, アンチエイリアシングフィルタ
-    i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL2_G, 0x5C | GYRO_SCALE);   // ジャイロ: ±500dps, 416Hz
+    i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL1_XL, ODR_XL_416Hz | ACC_SCALE);  // 加速度: ±4g, 416Hz, アンチエイリアシングフィルタ
+    i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL2_G, ODR_G_416Hz | GYRO_SCALE);   // ジャイロ: ±500dps, 416Hz
+    // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL1_XL, ODR_XL_208Hz | ACC_SCALE);  // 加速度: 208Hz
+    // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL2_G, ODR_G_208Hz | GYRO_SCALE);  // ジャイロ: 208Hz
+    // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL1_XL, ODR_XL_26Hz | ACC_SCALE);
+    // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL2_G, ODR_G_26Hz | GYRO_SCALE);
     i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL3_C, 0x44);   // BDU有効, アドレス自動インクリメント
     i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL4_C, 0x02);   // ジャイロLPF1有効
-    i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL8_XL, 0x09);  // 加速度LPF2有効, HPF有効
-    
+    i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL8_XL, 0x89);  // LPF2有効(0x80), ODR/4ローパスフィルタリング(0x08), 6D機能LPF2有効(0x01)
+    // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL8_XL, 0x0B);
     delay(150);
     readacc();  // EEPROMから加速度オフセットを読み込み
+}
+
+void calibrate() {
+    // キャリブレーションの開始
+    calibratingG = CALSTEPS;
+    calibratingA = CALSTEPS;
+    
+    // キャリブレーションが完了するまで待機
+    while (calibratingG > 0 || calibratingA > 0) {
+        GyroAcc_getADC();
+        delay(1);
+    }
+    
+    // キャリブレーション完了後、結果を送信
+    Serial.println("Calibration Complete");
+    Serial.printf("Gyro Offset: X: %d  Y: %d  Z: %d\n", gyroZero[0], gyroZero[1], gyroZero[2]);
+    Serial.printf("Acc Offset: X: %d  Y: %d  Z: %d\n", accZero[0], accZero[1], accZero[2]);
+
+    // クライアントにキャリブレーション完了を通知
+    calibrateRequest = false;  // キャリブレーションリクエストをfalseに設定
 }

@@ -76,7 +76,8 @@ public:
         
         // センサーの初期設定
         // CTRL_REG1: ODR=75Hz(0x50), ODR=200Hz(0x70),LOW_NOISE_EN=1, BDU=1
-        writeByte(CTRL_REG1, 0x70 | LOW_NOISE_EN | BDU);  
+        // writeByte(CTRL_REG1, 0x70 | LOW_NOISE_EN | BDU);  
+        writeByte(CTRL_REG1, 0x50);  // 75Hz出力、LPFなし
         writeByte(CTRL_REG2, 0x10);  // 連続測定モード
 
         // フィルタ設定
@@ -184,40 +185,31 @@ float pressure, temperature, altitude;
 void LPSHHTR_init() {
     
     if (!lps.begin()) {
-        Serial.println("LPS22HH センサーが見つかりません！");
+        Serial.println("LPS22HH ID NG");
         while (1) delay(10);
     }
-    Serial.println("LPS22HH センサー初期化完了");
+    Serial.println("LPS22HH ID OK");
 
     // キャリブレーション実行
     if (lps.calibrate()) {
-        Serial.println("キャリブレーション完了");
+        Serial.println("Pressure Calibrated");
         lps.calibrateSeaLevel();
-        Serial.print("基準気圧: ");
+        Serial.print("Reference Pressure: ");
         Serial.print(lps.getReferencePressure());
         Serial.println(" hPa");
     } else {
-        Serial.println("キャリブレーション失敗");
+        Serial.println("Calibration Failed");
     }
 }
 
 void getLPS22HH() {
     lps.readData();
     if (lps.isCalibrated()) {
-        // Serial.print("気圧: ");
-        // Serial.print(lps.pressure);
-        // Serial.print(" hPa, 温度: ");
-        // Serial.print(lps.temperature);
-        // Serial.println(" ℃");
-        // Serial.print("高度: ");
-        // Serial.print(lps.altitude);
-        // Serial.println(" m");
+        // 気圧 hPa
         pressure = lps.pressure;
+        // 温度 ℃
         temperature = lps.temperature;
+        // 高度 m
         altitude = lps.altitude;
-    } else {
-        Serial.println("キャリブレーションが完了していません");
     }
-    
-    // delay(100);
 }

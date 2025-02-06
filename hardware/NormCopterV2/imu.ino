@@ -7,7 +7,7 @@ float q2 = 0.0f;
 float q3 = 0.0f;
 
 //Filter parameters - Defaults tuned for 2kHz loop rate; Do not touch unless you know what you are doing:
-float B_madgwick = 0.04;  //Madgwick filter parameter
+float B_madgwick = 0.3f;  //Madgwick filter parameter
 
 float invSqrt(float x);
 

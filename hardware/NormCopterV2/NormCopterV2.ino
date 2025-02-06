@@ -12,8 +12,8 @@ UPDATE MARK 20240108
 
 WebServer server(80);
 
-const char* ssid = "XXXXXXXXXXXXXXXXXX";
-const char* password = "XXXXXXXXXXXXXXXXXX";
+const char* ssid = "****************";
+const char* password = "****************";
 
 #define MINTHROTTLE 50
 #define CALSTEPS 256 // gyro and acc calibration steps
@@ -26,6 +26,7 @@ enum ang { ROLL,PITCH,YAW };
 #define LED_GREEN 5
 #define ADC_BAT 35
 #define LOW_VOLT 3.0
+#define CS_PIN 27
 String act_ip;
 
 extern void initMot();
@@ -35,31 +36,11 @@ extern int16_t rcValue[];
 const float dt = 0.001 * float(LoopInterval); //in sec 
 unsigned long synctime;    
 
-// 省電力設定用の定数
-#define CPU_FREQ_LOW 80        // 最低CPU周波数(MHz)
-#define WIFI_TX_POWER 1        // WiFi送信電力(dBm) 
 void setup() 
 {
-  // // WiFi送信電力を下げる（デフォルトは20dBm）
-  // esp_wifi_set_max_tx_power(WIFI_TX_POWER);
-  // // CPU周波数を下げる（デフォルトは240MHz）
-  // setCpuFrequencyMhz(CPU_FREQ_LOW);
-  // // 自動光パワーセーブモードを有効化
-  // esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
-  // // 電源管理の設定
-  // esp_pm_config_esp32_t pm_config = {
-  //   .max_freq_mhz = CPU_FREQ_LOW,
-  //   .min_freq_mhz = CPU_FREQ_LOW,
-  //   .light_sleep_enable = true
-  // };
-  // esp_pm_configure(&pm_config);
-  // // 未使用のモジュールを無効化
-  // esp_bt_controller_disable();  // Bluetoothを無効化
-  // // ADCの解像度を下げる（電力消費を抑える）
-  // analogSetWidth(10);  // 10ビットに設定
-
   Wire.begin(21, 22);  // SDA=21, SCL=22 (ESP32のデフォルトピン)
   // Wire.setClock(400000); // 400kHz I2C
+  Wire.setClock(100000);  // 100kHzに設定
 
   EEPROM.begin(EEPROM_SIZE);  
   Serial.begin(115200);
@@ -67,12 +48,16 @@ void setup()
   pinMode(LED_YELLOW, OUTPUT);
   // pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
+  pinMode(CS_PIN, OUTPUT);
+  digitalWrite(CS_PIN, HIGH);
   digitalWrite(LED_YELLOW, LOW);
-  delay(5000);
+  // delay(5000);
+
   // Init Modules
   initMot();
   LSM6DSLTR_init();
   readacc();
+
   LPSHHTR_init();
   // Wi-Fi connection
   WiFi.mode(WIFI_STA);
@@ -104,14 +89,16 @@ void setup()
   Serial.println("P - PID");
   Serial.println("S - Servo");
   Serial.println("B - Battery");
-  Serial.println("L - LPS22HH");
+  Serial.println("H - LPS22HH");
+  Serial.println("L - Logging");
+  Serial.println("W - PID Settings");
 
   synctime = millis() + LoopInterval;
   digitalWrite(LED_GREEN, LOW);
   // digitalWrite(LED_YELLOW, LOW);
 }
 
-bool armed, fmode, led;
+bool armed, fmode, led, calibrateRequest;
 
 float GyroX,GyroY,GyroZ;
 float AccX, AccY, AccZ;
@@ -133,9 +120,20 @@ float B_gyro = 0.1;
 char debugvalue;
 float battery_vol = 0.0;
 int counter = 0;
-int sendInterval = 50;
+int sendInterval = 20;
+
+bool isHeader = true;
+const int LOG_INTERVAL = 20; // 何回のループに1回ログを取るか
+int logCounter = 0;
+bool isDetailLog = false;
+
+extern float Kp_rate, Ki_rate, Kd_rate;
+extern float Kp_yaw, Ki_yaw, Kd_yaw;
+extern float Kp_ang, Ki_ang, Kd_ang;
+extern float Kp_ayw, Ki_ayw, Kd_ayw;
 
 void loop() 
+
 { 
   float gx,gy,gz;
   battery_vol = getBattery();
@@ -159,42 +157,55 @@ void loop()
   rcvalCyclic();
 
   if (debugvalue == 'R') 
-    Serial.printf("%4.0f %4.0f %4.0f  %d  %d  %d \n", roll_rc, pitch_rc, yaw_rc, armed, fmode, led);  
+    Serial.printf("%4.0f %4.0f %4.0f  %d  %d  %d  %d\n", roll_rc, pitch_rc, yaw_rc, armed, fmode, led, calibrateRequest);  
   
   roll_des  = roll_rc;
   pitch_des = pitch_rc;
   yaw_des   = yaw_rc;
   
+  if (calibrateRequest) {
+    calibrateRequest = false;
+    Serial.println("Calibrate Request");
+    calibrate();
+  }
+  
   GyroAcc_getADC(); // 550us instead of 680us
+
+  gx = float(gyroADC[0]); 
+  gy = float(gyroADC[1]); 
+  gz = float(gyroADC[2]); 
+
+  GyroX = gx;
+  GyroY = gy;
+  GyroZ = gz;
+
+  // 1g=4096 -> 0.000244
+  AccX = float(accADC[0]);  
+  AccY = float(accADC[1]);  
+  AccZ = float(accADC[2]);
+
   if (debugvalue == 'G') 
-    Serial.printf("%4d %4d %4d \n", gyroADC[0], gyroADC[1], gyroADC[2]);
+    Serial.printf("%.2f %.2f %.2f \n", gx, gy, gz);
   if (debugvalue == 'A') 
-    Serial.printf("%5d %5d %5d \n", accADC[0], accADC[1], accADC[2]);
+    Serial.printf("%.2f %.2f %.2f \n", AccX, AccY, AccZ);
   getLPS22HH();
-  if (debugvalue == 'L') 
+
+  if (debugvalue == 'H') 
     Serial.printf("Pressure: %6.2f Temp: %5.2f Alt: %6.2f \n", pressure, temperature, altitude);
-    
-  // mpu6050 -> 2000 °/s 16.4 LSB/°/s -> 0.061  
-  gx = 0.061 * float(gyroADC[0]); 
-  gy = 0.061 * float(gyroADC[1]); 
-  gz = 0.061 * float(gyroADC[2]); 
-  GyroX = (1.0 - B_gyro)*GyroX + B_gyro*gx;
-  GyroY = (1.0 - B_gyro)*GyroY + B_gyro*gy;
-  GyroZ = (1.0 - B_gyro)*GyroZ + B_gyro*gz;
+
   if (debugvalue == 'g') 
     Serial.printf("%4.0f %4.0f %4.0f \n", GyroX, GyroY, GyroZ);
-  
-  // 1g=4096 -> 0.000244
-  AccX = 0.01 * float(accADC[0]);  
-  AccY = 0.01 * float(accADC[1]);  
-  AccZ = 0.01 * float(accADC[2]);
   
   Madgwick6DOF(GyroX,GyroY,GyroZ,AccX,AccY,AccZ,dt);
   if (debugvalue == 'M') 
     Serial.printf("%4.0f %4.0f %4.0f \n", roll_IMU, pitch_IMU, yaw_IMU);
 
-  fmode = true; // test
-  if (fmode) controlANG();
+  // fmode = true; // test
+  if (fmode) {
+    controlANG();
+  } else {
+    controlStable();
+  }
   controlRATE();
   
   if (led) digitalWrite(LED_YELLOW, HIGH);
@@ -209,19 +220,63 @@ void loop()
     sendDroneData();
     counter = 0;
   }
+
+  // ロギング開始/停止のコマンドを追加
+  if (debugvalue == 'L') {
+    logCounter = 0;
+    if(isHeader) {
+      // ヘッダー行を送信
+
+      Serial.println("DATA,gyroADC_X,gyroADC_Y,gyroADC_Z,accADC_X,accADC_Y,accADC_Z,GyroX,GyroY,GyroZ,AccX,AccY,AccZ,roll_IMU,pitch_IMU,yaw_IMU,roll_PID,pitch_PID,yaw_PID");
+    }
+    isHeader = false;
+    // データロギング
+    if(logCounter++ % LOG_INTERVAL == 0) {
+      if (isDetailLog) {
+        Serial.printf("DATA,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+          gyroADC[0], gyroADC[1], gyroADC[2],
+          accADC[0], accADC[1], accADC[2],
+          GyroX, GyroY, GyroZ,
+          AccX, AccY, AccZ,
+          roll_IMU, pitch_IMU, yaw_IMU,
+          roll_PID, pitch_PID, yaw_PID);
+      }
+      else {
+        Serial.printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+          GyroX, GyroY, GyroZ,
+          roll_PID, pitch_PID, yaw_PID);
+      }
+    }
+  }
+
+  if (debugvalue == 'W') {
+      Serial.println("--------------------------------");
+      Serial.println("Rate Settings");
+      Serial.println("Kp_rate: " + String(Kp_rate));
+      Serial.println("Ki_rate: " + String(Ki_rate));
+      Serial.println("Kd_rate: " + String(Kd_rate));
+      Serial.println("Yaw Settings");
+      Serial.println("Kp_yaw: " + String(Kp_yaw));
+      Serial.println("Ki_yaw: " + String(Ki_yaw));
+      Serial.println("Kd_yaw: " + String(Kd_yaw));
+      Serial.println("Ang Settings");
+      Serial.println("Kp_ang: " + String(Kp_ang));
+      Serial.println("Ki_ang: " + String(Ki_ang));
+      Serial.println("Kd_ang: " + String(Kd_ang));
+      Serial.println("Ang-Yaw Settings");
+      Serial.println("Kp_ayw: " + String(Kp_ayw));
+      Serial.println("Ki_ayw: " + String(Ki_ayw));
+      Serial.println("Kd_ayw: " + String(Kd_ayw));
+      Serial.println("--------------------------------");
+      
+      debugvalue = ' ';
+  }
+
   counter++;
   mix();
   if (debugvalue == 'S') Serial.printf("%4d %4d %4d %4d\n", servo[0], servo[1], servo[2], servo[3]);
   // calib only !
   /*
-  if (debugvalue == 'C') 
-  {
-    servo[0] = 2000; servo[1] = 2000; servo[2] = 2000; servo[3] = 2000;
-  }
-  if (debugvalue == 'c') 
-  {
-    servo[0] = 1000; servo[1] = 1000; servo[2] = 1000; servo[3] = 1000;
-  }
   /**/
   // if (LOW_VOLT > battery_vol) {
   //   // digitalWrite(LED_GREEN, LOW);
