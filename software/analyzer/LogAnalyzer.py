@@ -2,6 +2,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+import matplotlib.dates as mdates
+from datetime import datetime
 
 def analyze_log(file_path):
     # CSVファイルを読み込む
@@ -270,34 +272,137 @@ def analyze_pid_coefficients(df, CURRENT_PID):
         if amplitude < 2 and frequency < 2 and overshoot < 10:
             print("- 現在の設定は安定しています")
             print("  → 必要に応じて慎重にゲインを上げることで応答性を改善可能")
-            
+
+# CSVファイルを読み込む
+def load_log_data(file_path):
+    df = pd.read_csv(file_path, parse_dates=['timestamp'])
+    return df
+
+def plot_flight_data(df):
+    # 日本語フォントの設定
+    plt.rcParams['font.family'] = 'MS Gothic'
+    
+    # サブプロットの設定（6つのグラフを作成）
+    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(15, 18))
+    
+    # 時間軸のフォーマット設定
+    time_format = mdates.DateFormatter('%H:%M:%S')
+    
+    # 1. IMU角度のプロット
+    ax1.plot(df['timestamp'], df['imu_roll'], label='Roll')
+    ax1.plot(df['timestamp'], df['imu_pitch'], label='Pitch')
+    ax1.plot(df['timestamp'], df['imu_yaw'], label='Yaw')
+    ax1.set_title('IMU角度')
+    ax1.set_ylabel('角度 (度)')
+    ax1.legend()
+    ax1.grid(True)
+    ax1.xaxis.set_major_formatter(time_format)
+    
+    # 2. PID出力のプロット
+    ax2.plot(df['timestamp'], df['pid_roll'], label='Roll')
+    ax2.plot(df['timestamp'], df['pid_pitch'], label='Pitch')
+    ax2.plot(df['timestamp'], df['pid_yaw'], label='Yaw')
+    ax2.set_title('PID出力')
+    ax2.set_ylabel('出力値')
+    ax2.legend()
+    ax2.grid(True)
+    ax2.xaxis.set_major_formatter(time_format)
+    
+    # 3. ジャイロデータのプロット
+    ax3.plot(df['timestamp'], df['gyro_x'], label='X')
+    ax3.plot(df['timestamp'], df['gyro_y'], label='Y')
+    ax3.plot(df['timestamp'], df['gyro_z'], label='Z')
+    ax3.set_title('ジャイロセンサー')
+    ax3.set_ylabel('角速度 (deg/s)')
+    ax3.legend()
+    ax3.grid(True)
+    ax3.xaxis.set_major_formatter(time_format)
+    
+    # 4. 加速度データのプロット
+    ax4.plot(df['timestamp'], df['acc_x'], label='X')
+    ax4.plot(df['timestamp'], df['acc_y'], label='Y')
+    ax4.plot(df['timestamp'], df['acc_z'], label='Z')
+    ax4.set_title('加速度センサー')
+    ax4.set_ylabel('加速度 (m/s²)')
+    ax4.legend()
+    ax4.grid(True)
+    ax4.xaxis.set_major_formatter(time_format)
+    
+    # 5. サーボ値のプロット
+    ax5.plot(df['timestamp'], df['servo1'], label='Servo 1')
+    ax5.plot(df['timestamp'], df['servo2'], label='Servo 2')
+    ax5.plot(df['timestamp'], df['servo3'], label='Servo 3')
+    ax5.plot(df['timestamp'], df['servo4'], label='Servo 4')
+    ax5.set_title('サーボモーター出力')
+    ax5.set_ylabel('サーボ値')
+    ax5.legend()
+    ax5.grid(True)
+    ax5.xaxis.set_major_formatter(time_format)
+    
+    # 6. バッテリー、高度、温度のプロット
+    ax6_1 = ax6
+    ax6_2 = ax6.twinx()
+    ax6_3 = ax6.twinx()
+    
+    color1, color2, color3 = '#1f77b4', '#ff7f0e', '#2ca02c'
+    
+    line1 = ax6_1.plot(df['timestamp'], df['battery'], color=color1, label='バッテリー')
+    line2 = ax6_2.plot(df['timestamp'], df['altitude'], color=color2, label='高度')
+    line3 = ax6_3.plot(df['timestamp'], df['temperature'], color=color3, label='温度')
+    
+    ax6_1.set_ylabel('電圧 (V)', color=color1)
+    ax6_2.set_ylabel('高度 (m)', color=color2)
+    ax6_3.set_ylabel('温度 (℃)', color=color3)
+    ax6_3.spines['right'].set_position(('outward', 60))
+    
+    # 凡例の結合
+    lines = line1 + line2 + line3
+    labels = [l.get_label() for l in lines]
+    ax6.legend(lines, labels, loc='upper right')
+    ax6.grid(True)
+    ax6.xaxis.set_major_formatter(time_format)
+    
+    # グラフのレイアウト調整
+    plt.tight_layout()
+    
+    # グラフを保存
+    plt.savefig('flight_log.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
 if __name__ == "__main__":
-    # 最新のログファイルを自動的に選択
-    log_dir = Path("../Log")
-    log_files = list(log_dir.glob("drone_log_*.csv"))
-    if not log_files:
-        print("ログファイルが見つかりません")
-        exit(1)
+    # # 最新のログファイルを自動的に選択
+    # log_dir = Path("../Log")
+    # log_files = list(log_dir.glob("drone_log_*.csv"))
+    # if not log_files:
+    #     print("ログファイルが見つかりません")
+    #     exit(1)
     
-    # 最新のログファイルを選択
-    latest_log = max(log_files, key=lambda x: x.stat().st_mtime)
-    # n個前のログファイルを選択
-    n = 2
-    latest_log = log_files[-n]
-    print(f"Analyzing: {latest_log}")
+    # # 最新のログファイルを選択
+    # latest_log = max(log_files, key=lambda x: x.stat().st_mtime)
+    # # n個前のログファイルを選択
+    # n = 2
+    # latest_log = log_files[-n]
+    # print(f"Analyzing: {latest_log}")
     
-    analyze_log(latest_log)
-    df = pd.read_csv(latest_log)
-    analyze_phase(df)
-    # 現在の設定値
-    CURRENT_PID = {
-        'rate': {
-            'roll_pitch': {'Kp': 0.25, 'Ki': 0.01, 'Kd': 0.09},
-            'yaw': {'Kp': 0.25, 'Ki': 0.01, 'Kd': 0.05}
-        },
-        'angle': {
-            'roll_pitch': {'Kp': 0.20, 'Ki': 0.01, 'Kd': 0.01},
-            'yaw': {'Kp': 0.10, 'Ki': 0.01, 'Kd': 0.07}
-        }
-    }
+    # analyze_log(latest_log)
+    # df = pd.read_csv(latest_log)
+    # analyze_phase(df)
+    # # 現在の設定値
+    # CURRENT_PID = {
+    #     'rate': {
+    #         'roll_pitch': {'Kp': 0.25, 'Ki': 0.01, 'Kd': 0.09},
+    #         'yaw': {'Kp': 0.25, 'Ki': 0.01, 'Kd': 0.05}
+    #     },
+    #     'angle': {
+    #         'roll_pitch': {'Kp': 0.20, 'Ki': 0.01, 'Kd': 0.01},
+    #         'yaw': {'Kp': 0.10, 'Ki': 0.01, 'Kd': 0.07}
+    #     }
+    # }
     # analyze_pid_coefficients(df, CURRENT_PID)
+
+    try:
+        # CSVファイルを読み込む
+        df = pd.read_csv('../flight_log/log.csv', parse_dates=['timestamp'])
+        plot_flight_data(df)
+    except Exception as e:
+        print(f"エラーが発生しました: {e}")
