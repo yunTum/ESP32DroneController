@@ -22,14 +22,16 @@ WiFiUDP Udp;
 unsigned int localUdpPort = 4210;  //  port to listen on
 byte rxPacket[32];  // buffer for incoming packets
 
-uint8_t seqno;
+uint16_t seqno;
 volatile boolean gotRC;
 
 const int receivePacketSize = 18;
 uint8_t buffer[receivePacketSize];
-uint8_t sendBuffer[54];
+uint8_t sendBuffer[55];
 unsigned int rcUdpPort = 4211;  //  port to listen on
 bool success = false;
+
+// int16_t型用
 void storeRC(int16_t in, uint8_t * out)
 {
   out[0] = in>>8;
@@ -56,16 +58,19 @@ void storeRCFloatSigned(float in, uint8_t * out)
 
 void init_RC()
 {
+  // UDP通信開始
   Udp.begin(localUdpPort);
   Serial.printf("UDP port %d\n", localUdpPort);
 }
 
 void rcvalCyclic()
 {
+  // パケットサイズを取得
   int packetSize = Udp.parsePacket();
   if (packetSize == receivePacketSize)
   {
     Udp.read(rxPacket, receivePacketSize);
+    // ヘッダー：0x55
     if (rxPacket[0] == 0x55)
     {
       rcValue[0] = (rxPacket[ 2]<<8) + rxPacket[ 3]; 
@@ -98,7 +103,6 @@ void rcvalCyclic()
       roll_rc  = 0.3 * float(rcValue[0]-1515);
       pitch_rc = 0.3 * float(rcValue[1]-1515);
       yaw_rc   = 0.3 * float(rcValue[3]-1515);
-      // throttle = rcValue[2];
     }
     else if (nextRCtime < millis()) 
     {
@@ -119,51 +123,52 @@ void sendDroneData()
   {
     return;
   }
-  // バッファサイズを30バイトに設定（15個の値 × 2バイト）
+  // バッファサイズを55バイトに設定
+  // 1 byte：0x55
   sendBuffer[0] = 0x55;
-  sendBuffer[1] = seqno++;
-  
-  // サーボ値
-  storeRC(servo[0], &sendBuffer[2]);
-  storeRC(servo[1], &sendBuffer[4]);
-  storeRC(servo[2], &sendBuffer[6]);
-  storeRC(servo[3], &sendBuffer[8]);
-  
-  // PID値
-  storeRCFloatSigned(roll_PID, &sendBuffer[10]);
-  storeRCFloatSigned(pitch_PID, &sendBuffer[13]);
-  storeRCFloatSigned(yaw_PID, &sendBuffer[16]);
-  
-  // IMU角度
-  storeRCFloatSigned(roll_IMU, &sendBuffer[19]);
-  storeRCFloatSigned(pitch_IMU, &sendBuffer[22]);
-  storeRCFloatSigned(yaw_IMU, &sendBuffer[25]);
+  // 2-3 byte：シーケンス番号
+  storeRC(seqno++, &sendBuffer[1]);
 
-  // ジャイロ値
-  storeRCFloatSigned(GyroX, &sendBuffer[28]);
-  storeRCFloatSigned(GyroY, &sendBuffer[31]);
-  storeRCFloatSigned(GyroZ, &sendBuffer[34]);
-  
-  // バッテリー電圧
+  // 3-10 byte：サーボ値
+  storeRC(servo[0], &sendBuffer[3]);
+  storeRC(servo[1], &sendBuffer[5]);
+  storeRC(servo[2], &sendBuffer[7]);
+  storeRC(servo[3], &sendBuffer[9]);
+
+  // 11-20 byte：PID値
+  storeRCFloatSigned(roll_PID, &sendBuffer[11]);
+  storeRCFloatSigned(pitch_PID, &sendBuffer[14]);
+  storeRCFloatSigned(yaw_PID, &sendBuffer[17]);
+
+  // 20-28 byte：IMU角度
+  storeRCFloatSigned(roll_IMU, &sendBuffer[20]);
+  storeRCFloatSigned(pitch_IMU, &sendBuffer[23]);
+  storeRCFloatSigned(yaw_IMU, &sendBuffer[26]);
+
+  // 29-37 byte：ジャイロ値
+  storeRCFloatSigned(GyroX, &sendBuffer[29]);
+  storeRCFloatSigned(GyroY, &sendBuffer[32]);
+  storeRCFloatSigned(GyroZ, &sendBuffer[35]);  
+
+  // 38-39 byte：バッテリー電圧
   battery_vol = getBattery();
-  storeRCFloat(battery_vol, &sendBuffer[37]);
+  storeRCFloat(battery_vol, &sendBuffer[38]);
 
+  // 40-41 byte：高度
+  storeRCFloat(0, &sendBuffer[40]);
 
-  // 高度
-  storeRCFloat(0, &sendBuffer[39]);
+  // 42-43 byte：温度
+  storeRCFloat(0, &sendBuffer[42]);
 
-  // 温度
-  storeRCFloat(0, &sendBuffer[41]);
+  // 44-45 byte：キャリブレーションリクエスト
+  storeRC(calibrateRequest, &sendBuffer[44]);
 
-  // キャリブレーションリクエスト
-  storeRC(calibrateRequest, &sendBuffer[43]);
+  // 46-54 byte：加速度値 
+  storeRCFloatSigned(AccX, &sendBuffer[46]);
+  storeRCFloatSigned(AccY, &sendBuffer[49]);
+  storeRCFloatSigned(AccZ, &sendBuffer[52]);
 
-  // 加速度値 
-  storeRCFloatSigned(AccX, &sendBuffer[45]);
-  storeRCFloatSigned(AccY, &sendBuffer[48]);
-  storeRCFloatSigned(AccZ, &sendBuffer[51]);
-
-  Udp.write(sendBuffer, 54);  // 54バイト
+  Udp.write(sendBuffer, 55);  // 55バイト
   Udp.endPacket();
 
   // bufferをクリア
@@ -171,62 +176,3 @@ void sendDroneData()
   success = false;
 }
 //-----------------------------------------------
-
-/*
-IRAM_ATTR void rxInt() 
-{
-  uint32_t now,diff; 
-    
-  now = micros();
-  diff = now - last;
-  last = now;
-
-  if      (diff > 3000) chan = 0; // Sync gap
-  else if (chan < CHANNELS)
-  {
-    if (950<diff && diff<2050)
-    {
-      rcValue[chan] = diff;
-      chan++;
-    }
-    else chan = CHANNELS; // skip, corrupted signal.
-  }
-  if (chan == PPMIN_CHANNELS) recv = true;
-}
-  
-void init_RC()
-{
-  pinMode(RC_IN_PIN,INPUT);
-  attachInterrupt(RC_IN_PIN,rxInt,RISING);
-}
-
-void rcvalCyclic()
-{
-  if (recv)
-  {
-    if (debugvalue == 'r')
-    {
-      Serial.printf("%4d %4d %4d ",  rcValue[0], rcValue[1], rcValue[2]);
-      Serial.printf("%4d %4d %4d \n",rcValue[3], rcValue[4], rcValue[5]);
-    }
-    
-    recv = false;
-    nextRCtime = millis() + 250; // 250ms
-
-    if (rcValue[4] > 1750) armed = true; 
-    else                   armed = false; 
-    if (rcValue[5] > 1750) fmode = true; 
-    else                   fmode = false; 
-    
-    // roll=0 pitch=1 thr=2 yaw=3  
-    roll_rc  = 0.3 * float(rcValue[0]-1515);
-    pitch_rc = 0.3 * float(rcValue[1]-1515);
-    yaw_rc   = 0.3 * float(rcValue[3]-1515);
-  }
-  else if (nextRCtime < millis()) 
-  {
-    armed = false;
-    Serial.println("RC timeout disarm");
-  }
-}
-/**/

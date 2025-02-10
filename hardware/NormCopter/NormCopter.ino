@@ -1,5 +1,5 @@
 /*
-UPDATE MARK 20240108
+UPDATE MARK 20250210
 */
 #include <WiFi.h>
 #include <WebServer.h>
@@ -11,8 +11,9 @@ UPDATE MARK 20240108
 
 WebServer server(80);
 
-const char* ssid = "****************";
-const char* password = "****************";
+// ネットワーク設定
+const char* ssid = "JCOM_XBUW";
+const char* password = "681230514672";
 
 #define MINTHROTTLE 50
 #define CALSTEPS 256 // gyro and acc calibration steps
@@ -222,7 +223,6 @@ void loop()
     logCounter = 0;
     if(isHeader) {
       // ヘッダー行を送信
-
       Serial.println("DATA,gyroADC_X,gyroADC_Y,gyroADC_Z,accADC_X,accADC_Y,accADC_Z,GyroX,GyroY,GyroZ,AccX,AccY,AccZ,roll_IMU,pitch_IMU,yaw_IMU,roll_PID,pitch_PID,yaw_PID");
     }
     isHeader = false;
