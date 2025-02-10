@@ -9,14 +9,19 @@ int maxm = 1800; // for testing
 #define THRO_3V3_MIN 50
 #define THRO_3V3_MAX 1800
 const float powerRate = 1.5;
+// スムージング用の変数を追加
+float prev_servo_power[4] = {0, 0, 0, 0};
+#define SMOOTH_FACTOR 0.05  // スムージング係数（0.0-1.0）
+#define YAW_MAX_DELTA 5.0  // 1フレームあたりの最大ヨー変化量
+
 void mix()
 {
   // モーターごとの補正係数を追加
   const float motor_correction[] = {
     1.0, // RightBack
-    1.0, // RightTop
-    1.0, // LeftBack
-    1.0  // LeftTop
+    0.9, // RightTop
+    0.8, // LeftBack
+    0.9  // LeftTop
     };  // 必要に応じて調整
   if (armed & (rcValue[THR] > MINTHROTTLE))
   {
@@ -38,14 +43,31 @@ void mix()
     // servo[3] = constrain(thro + axisPID[ROLL] + axisPID[PITCH] - axisPID[YAW],THRO_3V3_MIN,maxm) * motor_correction[3]; // LeftTop
 
     // PID出力をスロットルに対する割合として適用
-    float roll_power = axisPID[ROLL] * 1.0;  // ±50を±0.5の範囲に
-    float pitch_power = axisPID[PITCH] * 1.0;
-    float yaw_power = axisPID[YAW] * 1.0;
+    // float roll_power = axisPID[ROLL] * 1.0;  // ±50を±0.5の範囲に
+    // float pitch_power = axisPID[PITCH] * 1.0;
+    float roll_power = constrain(axisPID[ROLL] * 0.7, -20, 20);
+    float pitch_power = constrain(axisPID[PITCH] * 0.7, -20, 20); 
+    // float yaw_power = axisPID[YAW] * 1.0;
+    static float prev_yaw_power = 0;
 
-    float servo_power0 = - roll_power - pitch_power - yaw_power;
-    float servo_power1 = - roll_power + pitch_power + yaw_power;
-    float servo_power2 = roll_power - pitch_power + yaw_power;
-    float servo_power3 = roll_power + pitch_power - yaw_power;
+    float yaw_power = constrain(axisPID[YAW] * 0.3, -15, 15);
+    float yaw_delta = yaw_power - prev_yaw_power;
+    yaw_delta = constrain(yaw_delta, -YAW_MAX_DELTA, YAW_MAX_DELTA);
+    yaw_power = prev_yaw_power + yaw_delta;
+    prev_yaw_power = yaw_power;
+
+
+    float servo_power0 = - roll_power - pitch_power - yaw_power;  // RightBack
+    float servo_power1 = - roll_power + pitch_power + yaw_power;  // RightTop
+    float servo_power2 = + roll_power - pitch_power + yaw_power;  // LeftBack
+    float servo_power3 = + roll_power + pitch_power - yaw_power;  // LeftTop
+
+    // 出力のスムージング処理
+    // servo_power0 = prev_servo_power[0] * (1 - SMOOTH_FACTOR) + servo_power0 * SMOOTH_FACTOR;
+    // servo_power1 = prev_servo_power[1] * (1 - SMOOTH_FACTOR) + servo_power1 * SMOOTH_FACTOR;
+    // servo_power2 = prev_servo_power[2] * (1 - SMOOTH_FACTOR) + servo_power2 * SMOOTH_FACTOR;
+    // servo_power3 = prev_servo_power[3] * (1 - SMOOTH_FACTOR) + servo_power3 * SMOOTH_FACTOR;
+
 
     if(fmode){
       // モーター出力を計算（スロットル値に対する割合で調整）
@@ -59,6 +81,7 @@ void mix()
       servo[1] = constrain(thro + servo_power1 * powerRate, THRO_3V3_MIN, maxm) * motor_correction[1];
       servo[2] = constrain(thro + servo_power2 * powerRate, THRO_3V3_MIN, maxm) * motor_correction[2];
       servo[3] = constrain(thro + servo_power3 * powerRate, THRO_3V3_MIN, maxm) * motor_correction[3];
+      // for(int i = 0; i < 4; i++) prev_servo_power[i] = 0;
     }
 
 

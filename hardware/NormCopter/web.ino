@@ -38,9 +38,16 @@ void handleCmd()
       Ki_ayw = server.arg(i).toFloat();
     else if (server.argName(i) == "KDay") 
       Kd_ayw = server.arg(i).toFloat();
+    else if (server.argName(i) == "Kp_stable") 
+      Kp_stable = server.arg(i).toFloat();
+    else if (server.argName(i) == "Ki_stable") 
+      Ki_stable = server.arg(i).toFloat();
+    else if (server.argName(i) == "Kd_stable") 
+      Kd_stable = server.arg(i).toFloat();
     else if (server.argName(i) == "MaxPow") 
       maxm = server.arg(i).toInt();
     else if (server.argName(i) == "CommF") 
+
       storeacc(); 
   }
   
@@ -117,6 +124,23 @@ void handleCmd()
   out += "KD\n";
   out += "<input type=\"number\" name=\"KDay\" step=\"0.01\" style=\"width:4em\" value=\"";
   out += Kd_ayw;
+  out += "\">&emsp;\n";
+  out += "<input type=\"submit\"><br>\n";
+  out += "</form>\n";
+  out += "<br>";
+
+  out += "<form method=\"post\">\n";
+  out += "Stable&emsp; KP\n";
+  out += "<input type=\"number\" name=\"Kp_stable\" step=\"0.01\" style=\"width:4em\" value=\"";
+  out += Kp_stable;
+  out += "\">&emsp;\n";
+  out += "KI\n";
+  out += "<input type=\"number\" name=\"Ki_stable\" step=\"0.01\" style=\"width:4em\" value=\"";
+  out += Ki_stable;
+  out += "\">&emsp;\n";
+  out += "KD\n";
+  out += "<input type=\"number\" name=\"Kd_stable\" step=\"0.01\" style=\"width:4em\" value=\"";
+  out += Kd_stable;
   out += "\">&emsp;\n";
   out += "<input type=\"submit\"><br>\n";
   out += "</form>\n";

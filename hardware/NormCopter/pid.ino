@@ -31,13 +31,19 @@ float yaw_PID = 0;
 float i_limit = 5.0; 
 extern int16_t rcValue[];
 
-float pid_limit = 50;
+float pid_limit = 100;
 
+float prev_derivative_roll = 0;
+float prev_derivative_pitch = 0;
+float prev_derivative_yaw = 0;
 
 // Stableモード用のPIDゲイン
-float Kp_stable = 1.3;     // 水平維持用の比例ゲイン
-float Ki_stable = 0.04;    // 水平維持用の積分ゲイン
-float Kd_stable = 0.02;    // 水平維持用の微分ゲイン
+// float Kp_stable = 0.14;     // 水平維持用の比例ゲイン
+// float Ki_stable = 0.01;    // 水平維持用の積分ゲイン
+// float Kd_stable = 0.00;    // 水平維持用の微分ゲイン
+float Kp_stable = 1.46;     // 水平維持用の比例ゲイン
+float Ki_stable = 0.40;    // 水平維持用の積分ゲイン
+float Kd_stable = 0.20;    // 水平維持用の微分ゲイン
 
 // Stableモード用の積分項
 float integral_stable_roll = 0;
@@ -49,6 +55,8 @@ float prev_stable_pitch_error = 0;
 #define STABLE_I_LIMIT 10.0 // 積分項の制限
 #define STABLE_ANGLE 10.0
 #define YAW_ANGLE 3.0
+#define FILTER_GAIN 0.4
+#define D_FILTER_GAIN 0.4
 void controlStable() 
 
 {
@@ -90,9 +98,9 @@ void controlStable()
   }
   
   // 角度制限
-  roll_des = constrain(roll_des, -STABLE_ANGLE, STABLE_ANGLE);
-  pitch_des = constrain(pitch_des, -STABLE_ANGLE, STABLE_ANGLE);
-  yaw_des = constrain(yaw_des, -YAW_ANGLE, YAW_ANGLE);
+  roll_rate_des = constrain(roll_des, -STABLE_ANGLE, STABLE_ANGLE);
+  pitch_rate_des = constrain(pitch_des, -STABLE_ANGLE, STABLE_ANGLE);
+  yaw_rate_des = constrain(yaw_des, -YAW_ANGLE, YAW_ANGLE);
 }
 
 
@@ -151,28 +159,50 @@ void controlRATE()
   if (rcValue[THR] < MINTHROTTLE) integral_roll = 0;
   integral_roll = constrain(integral_roll, -i_limit, i_limit); //Saturate integrator to prevent unsafe buildup
   // derivative_roll = (error_roll - error_roll_prev)/dt; 
-  derivative_roll = (GyroX_prev - GyroX)/dt; 
+  derivative_roll = (GyroX - GyroX_prev)/dt;
+  derivative_roll = derivative_roll * (1 - D_FILTER_GAIN) + prev_derivative_roll * D_FILTER_GAIN;
+
   roll_PID  = Kp_rate*error_roll;
   roll_PID += Ki_rate*integral_roll; 
-  roll_PID += Kd_rate*derivative_roll;
+  roll_PID -= Kd_rate*derivative_roll;
+  // anti-windup
+  if (roll_PID > pid_limit) {
+    integral_roll = integral_roll_prev;  
+  }
+  // update state
   integral_roll_prev = integral_roll;
+  prev_derivative_roll = derivative_roll;
   error_roll_prev = error_roll;
+  GyroX = GyroX * (1 - FILTER_GAIN) + GyroX_prev * FILTER_GAIN;
   GyroX_prev = GyroX;
-  
+  // limit PID output
+  roll_PID = constrain(roll_PID, -pid_limit, pid_limit);
+
   //Pitch
   error_pitch = pitch_rate_des - GyroY;
   integral_pitch = integral_pitch_prev + error_pitch*dt;
   if (rcValue[THR] < MINTHROTTLE) integral_pitch = 0;
   integral_pitch = constrain(integral_pitch, -i_limit, i_limit); //Saturate integrator to prevent unsafe buildup
-
   // derivative_pitch = (error_pitch - error_pitch_prev)/dt; 
-  derivative_pitch = (GyroY_prev - GyroY)/dt; 
+  derivative_pitch = (GyroY - GyroY_prev)/dt; 
+  derivative_pitch = derivative_pitch * (1 - D_FILTER_GAIN) + prev_derivative_pitch * D_FILTER_GAIN;
+
   pitch_PID  = Kp_rate*error_pitch;
   pitch_PID += Ki_rate*integral_pitch; 
-  pitch_PID += Kd_rate*derivative_pitch;
+  pitch_PID -= Kd_rate*derivative_pitch;
+  // anti-windup
+  if (pitch_PID > pid_limit) {
+    integral_pitch = integral_pitch_prev;  
+  }
+  // update state
   integral_pitch_prev = integral_pitch;
+  prev_derivative_pitch = derivative_pitch;
   error_pitch_prev = error_pitch;
+  GyroY = GyroY * (1 - FILTER_GAIN) + GyroY_prev * FILTER_GAIN;
   GyroY_prev = GyroY;
+  // limit PID output
+  pitch_PID = constrain(pitch_PID, -pid_limit, pid_limit);
+
 
   //Yaw, stablize on rate from GyroZ
   error_yaw = yaw_rate_des - GyroZ;
@@ -181,18 +211,25 @@ void controlRATE()
   integral_yaw = constrain(integral_yaw, -i_limit, i_limit); //Saturate integrator to prevent unsafe buildup
   // yaw_PID = (Kp_yaw*error_yaw + Ki_yaw*integral_yaw );
   // derivative_yaw = (error_yaw - error_yaw_prev)/dt; 
-  derivative_yaw = (GyroZ_prev - GyroZ)/dt; 
+  derivative_yaw = (GyroZ - GyroZ_prev)/dt; 
+  derivative_yaw = derivative_yaw * (1 - D_FILTER_GAIN) + prev_derivative_yaw * D_FILTER_GAIN;
+
   yaw_PID  = Kp_yaw*error_yaw;
   yaw_PID += Ki_yaw*integral_yaw; 
-  yaw_PID += Kd_yaw*derivative_yaw;
-  integral_yaw_prev = integral_yaw;
-  error_yaw_prev = error_yaw;
-  GyroZ_prev = GyroZ;
+  yaw_PID -= Kd_yaw*derivative_yaw;
+  // anti-windup
+  if (yaw_PID > pid_limit) {
+    integral_yaw = integral_yaw_prev;  
+  }
 
+  // update state
+  integral_yaw_prev = integral_yaw;
+  prev_derivative_yaw = derivative_yaw;
+  error_yaw_prev = error_yaw;
+  GyroZ = GyroZ * (1 - FILTER_GAIN) + GyroZ_prev * FILTER_GAIN;
+  GyroZ_prev = GyroZ;
   // limit PID output
-  // roll_PID = constrain(roll_PID, -pid_limit, pid_limit);
-  // pitch_PID = constrain(pitch_PID,  -pid_limit, pid_limit);
-  // yaw_PID = constrain(yaw_PID, -pid_limit, pid_limit);
+  yaw_PID = constrain(yaw_PID, -pid_limit, pid_limit);
 }
 
 void readpid()
@@ -209,8 +246,12 @@ void readpid()
   Kp_ayw  = EEPROM.readFloat(44);
   Ki_ayw  = EEPROM.readFloat(48);
   Kd_ayw  = EEPROM.readFloat(52);
+  Kp_stable = EEPROM.readFloat(56);
+  Ki_stable = EEPROM.readFloat(60);
+  Kd_stable = EEPROM.readFloat(64);
 }
 void storepid()
+
 
 {
   EEPROM.writeFloat( 8, Kp_rate);
@@ -225,5 +266,8 @@ void storepid()
   EEPROM.writeFloat(44, Kp_ayw);
   EEPROM.writeFloat(48, Ki_ayw);
   EEPROM.writeFloat(52, Kd_ayw);
+  EEPROM.writeFloat(56, Kp_stable);
+  EEPROM.writeFloat(60, Ki_stable);
+  EEPROM.writeFloat(64, Kd_stable);
   EEPROM.commit();      
 }

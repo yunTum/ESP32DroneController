@@ -8,8 +8,8 @@
 int16_t gyroADC[3];
 int16_t accADC[3];
 
-#define ACC_ORIENTATION(X, Y, Z)  {accADC[PITCH] = -X; accADC[ROLL]   = Y;  accADC[YAW]  =  Z;}
-#define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
+#define ACC_ORIENTATION(X, Y, Z)  {accADC[PITCH] = X; accADC[ROLL]   = Y;  accADC[YAW]  =  Z;}
+#define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = X; gyroADC[YAW] = -Z;}
 
 void i2cRead(uint8_t Address, uint8_t Register, uint8_t Nbytes, uint8_t* Data) 
 {
