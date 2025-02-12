@@ -13,6 +13,22 @@ float Kp_ayw  = 0.20;    //Ang Yaw P-gain
 float Ki_ayw  = 0.01;    //Ang Yaw I-gain
 float Kd_ayw  = 0.07;    //Ang Yaw D-gain
 
+// 高度制御用のPIDゲイン
+float Kp_alt = 1.2;    // 高度制御用の比例ゲイン
+float Ki_alt = 0.1;    // 高度制御用の積分ゲイン
+float Kd_alt = 0.3;    // 高度制御用の微分ゲイン
+
+// 高度制御用の変数
+float error_alt;       // 高度誤差
+float integral_alt = 0;
+float derivative_alt;
+float prev_error_alt = 0;
+float alt_des;         // 目標高度
+float alt_PID = 0;
+
+#define ALT_I_LIMIT 20.0  // 積分項の制限値
+#define ALT_PID_LIMIT 50.0 // PID出力の制限値
+
 float thro_des, roll_des, pitch_des, yaw_des; // RC input 0 to 1
 float roll_rate_des, pitch_rate_des, yaw_rate_des; // Desired rate commands
 float error_roll, integral_roll, integral_roll_prev, derivative_roll;
@@ -24,14 +40,15 @@ float integral_ang_roll,  integral_ang_roll_prev;
 float integral_ang_pitch, integral_ang_pitch_prev;
 float integral_ang_yaw,   integral_ang_yaw_prev;
 
-float roll_PID = 0;
-float pitch_PID = 0;
-float yaw_PID = 0;
+float roll_PID = 0; // left positive
+float pitch_PID = 0; // down positive
+float yaw_PID = 0; // clockwise positive
 
 float i_limit = 5.0; 
 extern int16_t rcValue[];
 
 float pid_limit = 100;
+float pid_limit_yaw = 100;
 
 float prev_derivative_roll = 0;
 float prev_derivative_pitch = 0;
@@ -98,9 +115,9 @@ void controlStable()
   }
   
   // 角度制限
-  roll_rate_des = constrain(roll_des, -STABLE_ANGLE, STABLE_ANGLE);
-  pitch_rate_des = constrain(pitch_des, -STABLE_ANGLE, STABLE_ANGLE);
-  yaw_rate_des = constrain(yaw_des, -YAW_ANGLE, YAW_ANGLE);
+  // roll_rate_des = constrain(roll_des, -STABLE_ANGLE, STABLE_ANGLE);
+  // pitch_rate_des = constrain(pitch_des, -STABLE_ANGLE, STABLE_ANGLE);
+  // yaw_rate_des = constrain(yaw_des, -YAW_ANGLE, YAW_ANGLE);
 }
 
 
@@ -176,7 +193,7 @@ void controlRATE()
   GyroX = GyroX * (1 - FILTER_GAIN) + GyroX_prev * FILTER_GAIN;
   GyroX_prev = GyroX;
   // limit PID output
-  roll_PID = constrain(roll_PID, -pid_limit, pid_limit);
+  // roll_PID = constrain(roll_PID, -pid_limit, pid_limit);
 
   //Pitch
   error_pitch = pitch_rate_des - GyroY;
@@ -201,7 +218,7 @@ void controlRATE()
   GyroY = GyroY * (1 - FILTER_GAIN) + GyroY_prev * FILTER_GAIN;
   GyroY_prev = GyroY;
   // limit PID output
-  pitch_PID = constrain(pitch_PID, -pid_limit, pid_limit);
+  // pitch_PID = constrain(pitch_PID, -pid_limit, pid_limit);
 
 
   //Yaw, stablize on rate from GyroZ
@@ -229,7 +246,36 @@ void controlRATE()
   GyroZ = GyroZ * (1 - FILTER_GAIN) + GyroZ_prev * FILTER_GAIN;
   GyroZ_prev = GyroZ;
   // limit PID output
-  yaw_PID = constrain(yaw_PID, -pid_limit, pid_limit);
+  // yaw_PID = constrain(yaw_PID, -pid_limit, pid_limit);
+}
+
+void controlAltitude() 
+{
+  // 現在の高度と目標高度の誤差を計算
+  error_alt = alt_des - current_altitude;  // current_altitudeは現在の高度
+
+  // 積分項の計算
+  integral_alt += error_alt * dt;
+  integral_alt = constrain(integral_alt, -ALT_I_LIMIT, ALT_I_LIMIT);
+
+  // 微分項の計算（高度の変化率）
+  derivative_alt = (error_alt - prev_error_alt) / dt;
+  
+  // PID出力の計算
+  alt_PID = Kp_alt * error_alt +
+            Ki_alt * integral_alt +
+            Kd_alt * derivative_alt;
+            
+  // PID出力を制限
+  alt_PID = constrain(alt_PID, -ALT_PID_LIMIT, ALT_PID_LIMIT);
+
+  // スロットルが低い場合は積分項をリセット
+  if (rcValue[THR] < MINTHROTTLE) {
+    integral_alt = 0;
+  }
+
+  // 状態の更新
+  prev_error_alt = error_alt;
 }
 
 void readpid()

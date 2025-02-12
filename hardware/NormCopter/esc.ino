@@ -1,6 +1,6 @@
 
 uint16_t servo[6];
-#define maxm 1800 // 1800 output
+int maxm = 1800; // 1800 output
 #define minm 200 // 200 output
 
 #define THRO_5V_MIN 10
@@ -31,16 +31,18 @@ void mix()
 
     // ヨーの出力をスムージング
     static float prev_yaw_power = 0;
-    float yaw_power = constrain(axisPID[YAW] * 0.3, -10, 10);
-    float yaw_delta = yaw_power - prev_yaw_power;
-    yaw_delta = constrain(yaw_delta, -YAW_MAX_DELTA, YAW_MAX_DELTA);
-    yaw_power = prev_yaw_power + yaw_delta;
-    prev_yaw_power = yaw_power;
+    float yaw_power = constrain(axisPID[YAW] * 0.7, -20, 20);
+    // float yaw_delta = yaw_power - prev_yaw_power;
+    // yaw_delta = constrain(yaw_delta, -YAW_MAX_DELTA, YAW_MAX_DELTA);
+    // yaw_power = prev_yaw_power + yaw_delta;
+    // prev_yaw_power = yaw_power;
 
     float servo_power0 = - roll_power - pitch_power - yaw_power;  // RightBack
     float servo_power1 = - roll_power + pitch_power + yaw_power;  // RightTop
     float servo_power2 = + roll_power - pitch_power + yaw_power;  // LeftBack
     float servo_power3 = + roll_power + pitch_power - yaw_power;  // LeftTop
+
+    float alt_power = constrain(axisPID_alt * 0.5, -20, 20);  // 高度制御の出力
 
     if(fmode){
       // モーター出力を計算（スロットル値に対する割合で調整）

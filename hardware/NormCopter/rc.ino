@@ -4,9 +4,9 @@
 int16_t rcValue[CHANNELS];
 int16_t axisPID[3];
 float roll_rc, pitch_rc, yaw_rc;
-
+int16_t axisPID_alt;
 unsigned long nextRCtime;    
-
+unsigned long synctime;
 #define CHANNELS 8
 #define PPMIN_CHANNELS 6  // dont raise this
 #define RC_IN_PIN 27 
@@ -25,9 +25,10 @@ byte rxPacket[32];  // buffer for incoming packets
 uint16_t seqno;
 volatile boolean gotRC;
 
+const char* send_ip = "192.168.40.245";
 const int receivePacketSize = 18;
 uint8_t buffer[receivePacketSize];
-uint8_t sendBuffer[55];
+uint8_t sendBuffer[60];
 unsigned int rcUdpPort = 4211;  //  port to listen on
 bool success = false;
 
@@ -37,6 +38,16 @@ void storeRC(int16_t in, uint8_t * out)
   out[0] = in>>8;
   out[1] = in&0xFF;
 }
+
+// unsigned long型用
+void storeRC(unsigned long in, uint32_t * out)
+{
+  out[0] = in & 0xFF;
+  out[1] = (in >> 8) & 0xFF;
+  out[2] = (in >> 16) & 0xFF;
+  out[3] = (in >> 24) & 0xFF;
+}
+
 // float値用
 void storeRCFloat(float in, uint8_t * out)
 {
@@ -118,7 +129,7 @@ void rcvalCyclic()
 
 void sendDroneData() 
 {
-  bool success = Udp.beginPacket("192.168.40.245", rcUdpPort);
+  bool success = Udp.beginPacket(send_ip, rcUdpPort);
   if (!success)
   {
     return;
@@ -168,7 +179,10 @@ void sendDroneData()
   storeRCFloatSigned(AccY, &sendBuffer[49]);
   storeRCFloatSigned(AccZ, &sendBuffer[52]);
 
-  Udp.write(sendBuffer, 55);  // 55バイト
+  // 55-58 byte：シンクタイム
+  storeRC(synctime, &sendBuffer[55]);
+
+  Udp.write(sendBuffer, 60);  // 60バイト
   Udp.endPacket();
 
   // bufferをクリア

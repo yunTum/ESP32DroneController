@@ -12,8 +12,8 @@ UPDATE MARK 20250210
 WebServer server(80);
 
 // ネットワーク設定
-const char* ssid = "JCOM_XBUW";
-const char* password = "681230514672";
+const char* ssid = "******************";
+const char* password = "******************";
 
 #define MINTHROTTLE 50
 #define CALSTEPS 256 // gyro and acc calibration steps
@@ -33,7 +33,7 @@ extern int16_t rcValue[];
 
 #define LoopInterval 4 // minimum 2ms
 const float dt = 0.001 * float(LoopInterval); //in sec 
-unsigned long synctime;    
+extern unsigned long synctime;    
 
 // ログ記録関連の変数
 bool isHeader = true;
@@ -49,6 +49,53 @@ extern float Kp_ayw, Ki_ayw, Kd_ayw;
 // 省電力設定用の定数
 #define CPU_FREQ_LOW 80        // 最低CPU周波数(MHz)
 #define WIFI_TX_POWER 1        // WiFi送信電力(dBm) 
+
+bool armed, fmode, led, calibrateRequest;
+
+float GyroX,GyroY,GyroZ;
+float AccX, AccY, AccZ;
+
+extern int16_t gyroADC[3];
+extern int16_t accADC[3];
+extern float roll_IMU, pitch_IMU, yaw_IMU;
+extern float roll_PID, pitch_PID, yaw_PID;
+extern float roll_des, pitch_des, yaw_des;
+extern float roll_rc, pitch_rc, yaw_rc;
+// extern float throttle;
+extern int16_t axisPID[3];
+extern int16_t axisPID_alt;
+extern float alt_PID;
+extern float alt_des;
+extern float current_altitude;
+
+extern uint16_t servo[];
+
+unsigned long oldT;
+float B_gyro = 0.1;
+char debugvalue;
+float battery_vol = 0.0;
+int counter = 0;
+int sendInterval = 10;
+
+// タスクハンドル追加
+TaskHandle_t blinkTaskHandle = NULL;
+
+// 点滅タスク関数
+void blinkTask(void * parameter) {
+  while(true) {
+    // アーム時に点滅開始
+    if (armed) {
+      digitalWrite(LED_RED, HIGH);
+      vTaskDelay(500 / portTICK_PERIOD_MS);  // 500ms ON
+      digitalWrite(LED_RED, LOW);
+      vTaskDelay(500 / portTICK_PERIOD_MS);  // 500ms OFF
+    }
+    else {
+      digitalWrite(LED_GREEN, LOW);
+    }
+  }
+}
+
 void setup() 
 {
   // WiFi送信電力を下げる（デフォルトは20dBm）
@@ -73,7 +120,7 @@ void setup()
   EEPROM.begin(EEPROM_SIZE);  
   Serial.begin(115200);
   // pinMode(ADC_BAT, INPUT);
-  // pinMode(LED_YELLOW, OUTPUT);
+  pinMode(LED_YELLOW, OUTPUT);
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
   digitalWrite(LED_RED, LOW);
@@ -117,30 +164,18 @@ void setup()
   Serial.println("W - PID Settings");
 
   synctime = millis() + LoopInterval;
+  // 点滅タスクの作成（コア1で実行）
+  // xTaskCreatePinnedToCore(
+  //   blinkTask,          // タスク関数
+  //   "BlinkTask",        // タスク名
+  //   2000,               // スタックサイズ
+  //   NULL,               // パラメータ
+  //   1,                  // 優先度
+  //   &blinkTaskHandle,   // タスクハンドル
+  //   1                   // 実行するコア(1)
+  // );
   // digitalWrite(LED_YELLOW, LOW);
 }
-
-bool armed, fmode, led, calibrateRequest;
-
-float GyroX,GyroY,GyroZ;
-float AccX, AccY, AccZ;
-
-extern int16_t gyroADC[3];
-extern int16_t accADC[3];
-extern float roll_IMU, pitch_IMU, yaw_IMU;
-extern float roll_PID, pitch_PID, yaw_PID;
-extern float roll_des, pitch_des, yaw_des;
-extern float roll_rc, pitch_rc, yaw_rc;
-// extern float throttle;
-extern int16_t axisPID[3];
-extern uint16_t servo[];
-
-unsigned long oldT;
-float B_gyro = 0.1;
-char debugvalue;
-float battery_vol = 0.0;
-int counter = 0;
-int sendInterval = 10;
 
 void loop() 
 { 
@@ -205,14 +240,15 @@ void loop()
   }
   controlRATE();
   
-  if (led) digitalWrite(LED_RED, HIGH);
-  else      digitalWrite(LED_RED, LOW);
+  if (led) digitalWrite(LED_YELLOW, HIGH);
+  else      digitalWrite(LED_YELLOW, LOW);
 
   if (debugvalue == 'P') Serial.printf("%4.0f %4.0f %4.0f \n", roll_PID, pitch_PID, yaw_PID);
 
   axisPID[ROLL]  = 10.0*roll_PID;
   axisPID[PITCH] = 10.0*pitch_PID;
   axisPID[YAW]   = 10.0*yaw_PID;
+  axisPID_alt    = 10.0*alt_PID;
   if (counter == sendInterval) {
     sendDroneData();
     counter = 0;
