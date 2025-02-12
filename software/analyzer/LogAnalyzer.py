@@ -329,14 +329,15 @@ def plot_flight_data(df):
     ax4.xaxis.set_major_formatter(time_format)
     
     # 5. サーボ値のプロット
-    ax5.plot(df['timestamp'], df['servo1'], label='Servo 1')
-    ax5.plot(df['timestamp'], df['servo2'], label='Servo 2')
-    ax5.plot(df['timestamp'], df['servo3'], label='Servo 3')
-    ax5.plot(df['timestamp'], df['servo4'], label='Servo 4')
+    ax5.plot(df['timestamp'], df['servo1'], label='Servo 1(RightBack)')
+    ax5.plot(df['timestamp'], df['servo2'], label='Servo 2(RightTop)')
+    ax5.plot(df['timestamp'], df['servo3'], label='Servo 3(LeftBack)')
+    ax5.plot(df['timestamp'], df['servo4'], label='Servo 4(LeftTop)')
     ax5.set_title('サーボモーター出力')
     ax5.set_ylabel('サーボ値')
     ax5.legend()
     ax5.grid(True)
+
     ax5.xaxis.set_major_formatter(time_format)
     
     # 6. バッテリー、高度、温度のプロット
@@ -368,6 +369,61 @@ def plot_flight_data(df):
     # グラフを保存
     plt.savefig('flight_log.png', dpi=300, bbox_inches='tight')
     plt.show()
+
+def split_data_by_sequence(df):
+    """シーケンス番号の連続性で飛行セッションを分割"""
+    sessions = []
+    current_session = []
+    last_seqno = -1
+    
+    # データを時間順にソート
+    df = df.sort_values(['timestamp', 'seqno'])
+    
+    for _, row in df.iterrows():
+        if row['seqno'] < last_seqno:  # シーケンス番号が減少したら新しいセッション
+            if current_session:
+                session_df = pd.DataFrame(current_session).reset_index(drop=True)
+                sessions.append(session_df)
+            current_session = []
+        current_session.append(row)
+        last_seqno = row['seqno']
+    
+    if current_session:
+        session_df = pd.DataFrame(current_session).reset_index(drop=True)
+        sessions.append(session_df)
+    
+    return sessions
+
+def analyze_session(df, session_num):
+    """セッションの基本情報を表示"""
+    duration = df['timestamp'].iloc[-1] - df['timestamp'].iloc[0]
+    print(f"\nセッション {session_num} の概要:")
+    print(f"開始時刻: {df['timestamp'].iloc[0].strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"終了時刻: {df['timestamp'].iloc[-1].strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"継続時間: {duration.total_seconds():.1f}秒")
+    print(f"データ点数: {len(df)}")
+    print(f"シーケンス番号範囲: {df['seqno'].min()} - {df['seqno'].max()}")
+    print("-" * 50)
+
+def select_session(sessions):
+    """セッションの一覧を表示し、ユーザーに選択させる"""
+    print("\n利用可能なセッション:")
+    for i, session in enumerate(sessions, 1):
+        duration = session['timestamp'].iloc[-1] - session['timestamp'].iloc[0]
+        print(f"\n[{i}] セッション {i}")
+        print(f"    開始: {session['timestamp'].iloc[0].strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"    時間: {duration.total_seconds():.1f}秒")
+        print(f"    データ数: {len(session)}")
+
+    while True:
+        try:
+            choice = int(input("\n分析するセッション番号を入力してください（1-{}）: ".format(len(sessions))))
+            if 1 <= choice <= len(sessions):
+                return choice, sessions[choice-1]  # インデックスとセッションの両方を返す
+            else:
+                print("有効な番号を入力してください")
+        except ValueError:
+            print("数字を入力してください")
 
 if __name__ == "__main__":
     # # 最新のログファイルを自動的に選択
@@ -403,6 +459,16 @@ if __name__ == "__main__":
     try:
         # CSVファイルを読み込む
         df = pd.read_csv('../flight_log/log.csv', parse_dates=['timestamp'])
-        plot_flight_data(df)
+        # セッションごとに分割
+        sessions = split_data_by_sequence(df)
+        
+        print(f"合計 {len(sessions)} セッションを検出しました。")
+        
+        # セッションを選択
+        session_num, selected_session = select_session(sessions)  # 選択されたセッション番号も取得
+        
+        # 選択されたセッションを解析
+        analyze_session(selected_session, session_num)
+        plot_flight_data(selected_session)
     except Exception as e:
         print(f"エラーが発生しました: {e}")

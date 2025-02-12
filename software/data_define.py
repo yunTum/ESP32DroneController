@@ -49,11 +49,12 @@ class DroneData():
         self.last_velocity = {'x': 0, 'y': 0, 'z': 0}
         self.last_time = time.time()
         self.calculated_altitude = 0
+        self.last_att = 0
 
     def parse_data(self, data):
         # print(f"Data: {data} data[0]: {data[0]}")
         data_len = len(data)
-        if (data_len == 55) and data[0] == 0x55:
+        if (data_len == 60) and data[0] == 0x55:
             self.seqno = (data[1] << 8) + data[2]
             # サーボ値の解析
             for i in range(4):
@@ -158,6 +159,10 @@ class DroneData():
                 acc_z = -acc_z
             self.acc['z'] = acc_z / 100
 
+            # シンクタイムの解析 8バイト msec
+            sync_time = (data[58] << 24) + (data[57] << 16) + (data[56] << 8) + data[55]
+            self.sync_time = sync_time / 1000 # sec
+
             self.calculate_altitude_from_acc()
 
             # IMUとPIDとの差分
@@ -168,6 +173,7 @@ class DroneData():
             log_data = [
                 f"{time.strftime('%Y-%m-%d %H:%M:%S')}",  # タイムスタンプ
                 f"{self.seqno}",                          # シーケンス番号
+                f"{self.sync_time}",                      # シンクタイム
                 f"{','.join(map(str, self.servo))}",      # サーボ値
                 f"{self.pid['roll']:.2f}",                # PID Roll
                 f"{self.pid['pitch']:.2f}",               # PID Pitch
@@ -198,7 +204,11 @@ class DroneData():
         return False
     
     def calculate_altitude_from_acc(self):
-        current_time = time.time()
+        current_time = self.sync_time
+        if self.seqno == 0:
+            self.last_time = current_time
+            self.last_velocity = {'x': 0, 'y': 0, 'z': 0}
+            self.calculated_altitude = 0
         dt = current_time - self.last_time
         
         # 重力加速度の補正（9.81 m/s^2）
