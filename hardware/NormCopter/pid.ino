@@ -74,14 +74,26 @@ float prev_stable_pitch_error = 0;
 #define YAW_ANGLE 3.0
 #define FILTER_GAIN 0.4
 #define D_FILTER_GAIN 0.4
-void controlStable() 
+#define D_FILTER_STABLE 0.7    // 微分項用フィルター係数
+#define ANGLE_FILTER 0.8     // 角度用ローパスフィルター係数
 
+float filtered_roll_IMU = 0;
+float filtered_pitch_IMU = 0;
+float prev_roll_D = 0;
+float prev_pitch_D = 0;
+
+void controlStable() 
 {
+  // 角度のフィルタリング
+  filtered_roll_IMU = filtered_roll_IMU * ANGLE_FILTER + roll_IMU * (1 - ANGLE_FILTER);
+  filtered_pitch_IMU = filtered_pitch_IMU * ANGLE_FILTER + pitch_IMU * (1 - ANGLE_FILTER);
+
   // ロール角の制御（水平に戻す）
-  float roll_error = 0 - roll_IMU;  // 目標角度は0度（水平）
+  float roll_error = 0 - filtered_roll_IMU;  // フィルター済みの値を使用
   integral_stable_roll += roll_error * dt;
   integral_stable_roll = constrain(integral_stable_roll, -STABLE_I_LIMIT, STABLE_I_LIMIT);
   float roll_D = (roll_error - prev_stable_roll_error) / dt;
+  roll_D = roll_D * (1 - D_FILTER_STABLE) + prev_roll_D * D_FILTER_STABLE;  // 微分項のフィルタリング
   
   // スティック入力との組み合わせ
   float stick_roll = roll_rc * MAX_ANGLE;
@@ -90,10 +102,11 @@ void controlStable()
                           Kd_stable * roll_D);
   
   // ピッチ角の制御（水平に戻す）
-  float pitch_error = 0 - pitch_IMU;  // 目標角度は0度（水平）
+  float pitch_error = 0 - filtered_pitch_IMU;  // フィルター済みの値を使用
   integral_stable_pitch += pitch_error * dt;
   integral_stable_pitch = constrain(integral_stable_pitch, -STABLE_I_LIMIT, STABLE_I_LIMIT);
   float pitch_D = (pitch_error - prev_stable_pitch_error) / dt;
+  pitch_D = pitch_D * (1 - D_FILTER_STABLE) + prev_pitch_D * D_FILTER_STABLE;  // 微分項のフィルタリング
   
   // スティック入力との組み合わせ
   float stick_pitch = pitch_rc * MAX_ANGLE;
@@ -107,6 +120,8 @@ void controlStable()
   // 前回値の保存
   prev_stable_roll_error = roll_error;
   prev_stable_pitch_error = pitch_error;
+  prev_roll_D = roll_D;
+  prev_pitch_D = pitch_D;
   
   // スロットルが低い場合は積分項をリセット
   if (rcValue[THR] < MINTHROTTLE) {
