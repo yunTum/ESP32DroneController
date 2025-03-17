@@ -64,24 +64,27 @@ const int MotChannel3 = 3;
 
 void writeMot() 
 {
-  ledcWrite(MotChannel0, servo[0]);
-  ledcWrite(MotChannel1, servo[1]);
-  ledcWrite(MotChannel2, servo[2]);
-  ledcWrite(MotChannel3, servo[3]);
+  ledcWrite(MotPin0, servo[0]);
+  ledcWrite(MotPin1, servo[1]);
+  ledcWrite(MotPin2, servo[2]);
+  ledcWrite(MotPin3, servo[3]);
 }
 
 void initMot() 
 {
-  ledcSetup(MotChannel0, PWM_FREQ, 11); // 500 hz PWM, 11-bit resolution
-  ledcSetup(MotChannel1, PWM_FREQ, 11); // 500 hz PWM, 11-bit resolution
-  ledcSetup(MotChannel2, PWM_FREQ, 11); // 500 hz PWM, 11-bit resolution
-  ledcSetup(MotChannel3, PWM_FREQ, 11); // 500 hz PWM, 11-bit resolution
-  ledcAttachPin(MotPin0, MotChannel0); 
-  ledcAttachPin(MotPin1, MotChannel1); 
-  ledcAttachPin(MotPin2, MotChannel2); 
-  ledcAttachPin(MotPin3, MotChannel3); 
-  // ledcWrite(MotChannel0, THRO_3V3_MIN);
-  // ledcWrite(MotChannel1, THRO_3V3_MIN);
-  // ledcWrite(MotChannel2, THRO_3V3_MIN);
-  // ledcWrite(MotChannel3, THRO_3V3_MIN);
+  // ESP32のCore V3.0.0以降では、ledcSetupとledcAttachPinの代わりにledcAttachを使用する必要がある
+  ledcAttach(MotPin0, PWM_FREQ, 11); // PWM, 11-bit resolution
+  ledcAttach(MotPin1, PWM_FREQ, 11); // PWM, 11-bit resolution
+  ledcAttach(MotPin2, PWM_FREQ, 11); // PWM, 11-bit resolution
+  ledcAttach(MotPin3, PWM_FREQ, 11); // PWM, 11-bit resolution
+  ledcWrite(MotPin0, THRO_3V3_MIN);
+  ledcWrite(MotPin1, THRO_3V3_MIN);
+  ledcWrite(MotPin2, THRO_3V3_MIN);
+  ledcWrite(MotPin3, THRO_3V3_MIN);
+
+  delay(2000);
+  ledcWrite(MotPin0, 0);
+  ledcWrite(MotPin1, 0);
+  ledcWrite(MotPin2, 0);
+  ledcWrite(MotPin3, 0);
 }

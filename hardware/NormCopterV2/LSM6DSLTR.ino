@@ -77,9 +77,9 @@ int filter_index = 0;
 #define ACC_SCALE_16G  0x04  // ±16g
 
 #define GYRO_SCALE GYRO_SCALE_250
-#define ACC_SCALE ACC_SCALE_4G
+#define ACC_SCALE ACC_SCALE_2G
 
-// 現在の設定
+// ジャイロスケール変換係数
 #if GYRO_SCALE == GYRO_SCALE_250
     #define GYRO_SCALE_FACTOR 8.750f  // mdps/LSB
 #elif GYRO_SCALE == GYRO_SCALE_500
@@ -90,7 +90,7 @@ int filter_index = 0;
     #define GYRO_SCALE_FACTOR 70.00f  // mdps/LSB
 #endif
 
-// 現在の設定
+// 加速度スケール変換係数
 #if ACC_SCALE == ACC_SCALE_2G
     #define ACC_SCALE_FACTOR 0.061f  // mg/LSB
 #elif ACC_SCALE == ACC_SCALE_4G
@@ -99,6 +99,24 @@ int filter_index = 0;
     #define ACC_SCALE_FACTOR 0.244f  // mg/LSB
 #elif ACC_SCALE == ACC_SCALE_16G
     #define ACC_SCALE_FACTOR 0.488f  // mg/LSB
+#endif
+
+// ジャイロ取得周波数
+#if defined(ODR_G_416Hz)
+    #define GYRO_DT 0.002403846f  // 1/416Hz
+#elif defined(ODR_G_208Hz)
+    #define GYRO_DT 0.004807692f  // 1/208Hz
+#elif defined(ODR_G_26Hz)
+    #define GYRO_DT 0.038461538f  // 1/26Hz
+#endif
+
+// 加速度取得周波数
+#if defined(ODR_XL_416Hz)
+    #define ACC_DT 0.002403846f  // 1/416Hz
+#elif defined(ODR_XL_208Hz)
+    #define ACC_DT 0.004807692f  // 1/208Hz
+#elif defined(ODR_XL_26Hz)
+    #define ACC_DT 0.038461538f  // 1/26Hz
 #endif
 
 void i2cRead(uint8_t Address, uint8_t Register, uint8_t Nbytes, uint8_t* Data) {
@@ -159,11 +177,11 @@ void GYRO_Common() {
     for (axis = 0; axis < 3; axis++) {
         gyroADC[axis] = gyroADC[axis] - gyroZero[axis];
         // 移動平均フィルタを適用
-        applyMovingAverage(gyroADC[axis], gyro_history[axis], filtered_gyro[axis]);
+        // applyMovingAverage(gyroADC[axis], gyro_history[axis], filtered_gyro[axis]);
         // PID制御用の変数に代入
-        if (axis == ROLL) GyroX = filtered_gyro[axis];
-        if (axis == PITCH) GyroY = filtered_gyro[axis];
-        if (axis == YAW) GyroZ = filtered_gyro[axis];
+        if (axis == ROLL) GyroX = gyroADC[axis];
+        if (axis == PITCH) GyroY = gyroADC[axis];
+        if (axis == YAW) GyroZ = gyroADC[axis];
     }
 }
 
@@ -182,9 +200,9 @@ void storeacc() {
 
 void ACC_Common() {
     static int32_t a[3];
-    static unsigned long last_time = 0;
-    float dt = (micros() - last_time) / 1000000.0f;
-    last_time = micros();
+    // static unsigned long last_time = 0;
+    // float dt = ACC_DT;
+    // last_time = micros();
 
     if (calibratingA > 0) {
         for (uint8_t axis = 0; axis < 3; axis++) {
@@ -194,12 +212,18 @@ void ACC_Common() {
             accZero[axis] = 0;
         }
         if (calibratingA == 1) {
-            for (uint8_t axis = 0; axis < 3; axis++) {
-                if (a[axis] >= 0) a[axis] += CALSTEPS/2;
-                else             a[axis] -= CALSTEPS/2;
-                accZero[axis] = a[axis]/CALSTEPS;
-            }
-            accZero[2] -= ACCRESO;
+            // for (uint8_t axis = 0; axis < 3; axis++) {
+            //     if (a[axis] >= 0) a[axis] += CALSTEPS/2;
+            //     else             a[axis] -= CALSTEPS/2;
+            //     accZero[axis] = a[axis]/CALSTEPS;
+            // }
+            // accZero[2] -= ACCRESO;
+            if (a[0] >= 0) a[0] += CALSTEPS/2; else a[0] -= CALSTEPS/2;
+            if (a[1] >= 0) a[1] += CALSTEPS/2; else a[1] -= CALSTEPS/2;
+            if (a[2] >= 0) a[2] += CALSTEPS/2; else a[2] -= CALSTEPS/2;
+            accZero[0] = a[0]/CALSTEPS;
+            accZero[1] = a[1]/CALSTEPS;
+            accZero[2] = (a[2]/CALSTEPS) - ACCRESO;
             storeacc();
         }
         calibratingA--;
@@ -211,16 +235,16 @@ void ACC_Common() {
     
     for (uint8_t axis = 0; axis < 3; axis++) {
         accADC[axis] -= accZero[axis];
-        // 移動平均フィルタと相補フィルタを適用
-        applyMovingAverage(accADC[axis], acc_history[axis], filtered_acc[axis]);
-        applyComplementaryFilter(filtered_acc[axis], filtered_gyro[axis], filtered_acc[axis], dt);
+        // // 移動平均フィルタと相補フィルタを適用
+        // applyMovingAverage(accADC[axis], acc_history[axis], filtered_acc[axis]);
+        // applyComplementaryFilter(filtered_acc[axis], filtered_gyro[axis], filtered_acc[axis], dt);
     
         // PID制御用の変数に代入
-        if (axis == ROLL) AccX = filtered_acc[axis];
-        if (axis == PITCH) AccY = filtered_acc[axis];
-        if (axis == YAW) AccZ = filtered_acc[axis];
+        if (axis == ROLL) AccX = float(accADC[axis]) * 0.01;
+        if (axis == PITCH) AccY = float(accADC[axis]) * 0.01;
+        if (axis == YAW) AccZ = float(accADC[axis]) * 0.01;
     }
-    filter_index = (filter_index + 1) % FILTER_SIZE;
+    // filter_index = (filter_index + 1) % FILTER_SIZE;
 }
 
 uint8_t rawADC[12];
@@ -237,9 +261,9 @@ void GyroAcc_getADC() {
     int16_t gyro_z = (int16_t)((rawADC[5] << 8) | rawADC[4]);
 
     // スケール変換を適用（mdps → dps）
-    float gyro_x_dps = gyro_x * GYRO_SCALE_FACTOR / 1000.0f;
-    float gyro_y_dps = gyro_y * GYRO_SCALE_FACTOR / 1000.0f;
-    float gyro_z_dps = gyro_z * GYRO_SCALE_FACTOR / 1000.0f;
+    float gyro_x_dps = gyro_x * GYRO_SCALE_FACTOR / 100.0f;
+    float gyro_y_dps = gyro_y * GYRO_SCALE_FACTOR / 100.0f;
+    float gyro_z_dps = gyro_z * GYRO_SCALE_FACTOR / 100.0f;
 
     GYRO_ORIENTATION(gyro_x_dps, gyro_y_dps, gyro_z_dps);
     GYRO_Common();
@@ -250,9 +274,9 @@ void GyroAcc_getADC() {
     int16_t acc_z = (int16_t)((rawADC[11] << 8) | rawADC[10]);
 
     // スケール変換を適用（mG → G）
-    float acc_x_g = acc_x * ACC_SCALE_FACTOR;
-    float acc_y_g = acc_y * ACC_SCALE_FACTOR;
-    float acc_z_g = acc_z * ACC_SCALE_FACTOR;
+    float acc_x_g = acc_x * ACC_SCALE_FACTOR * 32768 / 1000.0f;
+    float acc_y_g = acc_y * ACC_SCALE_FACTOR * 32768 / 1000.0f;
+    float acc_z_g = acc_z * ACC_SCALE_FACTOR * 32768 / 1000.0f;
 
     // 生の16ビット値をそのまま使用
     ACC_ORIENTATION(acc_x_g, acc_y_g, acc_z_g);

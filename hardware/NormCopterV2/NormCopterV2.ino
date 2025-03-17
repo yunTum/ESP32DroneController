@@ -52,7 +52,7 @@ void setup()
   digitalWrite(CS_PIN, HIGH);
   digitalWrite(LED_YELLOW, LOW);
   // delay(5000);
-
+  
   // Init Modules
   initMot();
   LSM6DSLTR_init();
@@ -171,23 +171,23 @@ void loop()
   
   GyroAcc_getADC(); // 550us instead of 680us
 
-  gx = float(gyroADC[0]); 
-  gy = float(gyroADC[1]); 
-  gz = float(gyroADC[2]); 
+  // gx = float(gyroADC[0]); 
+  // gy = float(gyroADC[1]); 
+  // gz = float(gyroADC[2]); 
 
-  GyroX = gx;
-  GyroY = gy;
-  GyroZ = gz;
+  // GyroX = gx;
+  // GyroY = gy;
+  // GyroZ = gz;
 
-  // 1g=4096 -> 0.000244
-  AccX = float(accADC[0]);  
-  AccY = float(accADC[1]);  
-  AccZ = float(accADC[2]);
+  // // 1g=4096 -> 0.000244
+  // AccX = float(accADC[0]);  
+  // AccY = float(accADC[1]);  
+  // AccZ = float(accADC[2]);
 
   if (debugvalue == 'G') 
-    Serial.printf("%.2f %.2f %.2f \n", gx, gy, gz);
+    Serial.printf("%4d %4d %4d \n", gyroADC[0], gyroADC[1], gyroADC[2]);
   if (debugvalue == 'A') 
-    Serial.printf("%.2f %.2f %.2f \n", AccX, AccY, AccZ);
+    Serial.printf("%5d %5d %5d \n", accADC[0], accADC[1], accADC[2]);
   getLPS22HH();
 
   if (debugvalue == 'H') 
@@ -195,7 +195,9 @@ void loop()
 
   if (debugvalue == 'g') 
     Serial.printf("%4.0f %4.0f %4.0f \n", GyroX, GyroY, GyroZ);
-  
+  if (debugvalue == 'a') 
+    Serial.printf("%4.0f %4.0f %4.0f \n", AccX, AccY, AccZ);
+
   Madgwick6DOF(GyroX,GyroY,GyroZ,AccX,AccY,AccZ,dt);
   if (debugvalue == 'M') 
     Serial.printf("%4.0f %4.0f %4.0f \n", roll_IMU, pitch_IMU, yaw_IMU);

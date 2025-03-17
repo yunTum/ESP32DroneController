@@ -19,7 +19,7 @@ volatile boolean gotRC;
 
 const int receivePacketSize = 18;
 uint8_t buffer[receivePacketSize];
-uint8_t sendBuffer[54];
+uint8_t sendBuffer[60];
 unsigned int rcUdpPort = 4211;  //  port to listen on
 bool success = false;
 void storeRC(int16_t in, uint8_t * out)
@@ -112,48 +112,53 @@ void sendDroneData()
   }
   // バッファサイズを54バイトに設定（15個の値 × 2バイト）
   sendBuffer[0] = 0x55;
-  sendBuffer[1] = seqno++;
-  
+
+  // 2 byte：シーケンス番号
+  storeRC(seqno++, &sendBuffer[1]);
+
   // サーボ値
-  storeRC(servo[0], &sendBuffer[2]);
-  storeRC(servo[1], &sendBuffer[4]);
-  storeRC(servo[2], &sendBuffer[6]);
-  storeRC(servo[3], &sendBuffer[8]);
+  storeRC(servo[0], &sendBuffer[3]);
+  storeRC(servo[1], &sendBuffer[5]);
+  storeRC(servo[2], &sendBuffer[7]);
+  storeRC(servo[3], &sendBuffer[9]);
   
   // PID値
-  storeRCFloatSigned(roll_PID, &sendBuffer[10]);
-  storeRCFloatSigned(pitch_PID, &sendBuffer[13]);
-  storeRCFloatSigned(yaw_PID, &sendBuffer[16]);
+  storeRCFloatSigned(roll_PID, &sendBuffer[11]);
+  storeRCFloatSigned(pitch_PID, &sendBuffer[14]);
+  storeRCFloatSigned(yaw_PID, &sendBuffer[17]);
   
   // IMU角度
-  storeRCFloatSigned(roll_IMU, &sendBuffer[19]);
-  storeRCFloatSigned(pitch_IMU, &sendBuffer[22]);
-  storeRCFloatSigned(yaw_IMU, &sendBuffer[25]);
+  storeRCFloatSigned(roll_IMU, &sendBuffer[20]);
+  storeRCFloatSigned(pitch_IMU, &sendBuffer[23]);
+  storeRCFloatSigned(yaw_IMU, &sendBuffer[26]);
 
   // ジャイロ値
-  storeRCFloatSigned(GyroX, &sendBuffer[28]);
-  storeRCFloatSigned(GyroY, &sendBuffer[31]);
-  storeRCFloatSigned(GyroZ, &sendBuffer[34]);
+  storeRCFloatSigned(GyroX, &sendBuffer[29]);
+  storeRCFloatSigned(GyroY, &sendBuffer[32]);
+  storeRCFloatSigned(GyroZ, &sendBuffer[35]);
   
   // バッテリー電圧
   battery_vol = getBattery();
-  storeRCFloat(battery_vol, &sendBuffer[37]);
+  storeRCFloat(battery_vol, &sendBuffer[38]);
 
   // 高度
-  storeRCFloat(altitude, &sendBuffer[39]);
+  storeRCFloat(altitude, &sendBuffer[40]);
 
   // 温度
-  storeRCFloat(temperature, &sendBuffer[41]);
+  storeRCFloat(temperature, &sendBuffer[42]);
 
   // キャリブレーションリクエスト
-  storeRC(calibrateRequest, &sendBuffer[43]);
+  storeRC(calibrateRequest, &sendBuffer[44]);
 
   // 加速度値 
-  storeRCFloatSigned(AccX, &sendBuffer[45]);
-  storeRCFloatSigned(AccY, &sendBuffer[48]);
-  storeRCFloatSigned(AccZ, &sendBuffer[51]);
+  storeRCFloatSigned(AccX, &sendBuffer[46]);
+  storeRCFloatSigned(AccY, &sendBuffer[49]);
+  storeRCFloatSigned(AccZ, &sendBuffer[52]);
 
-  Udp.write(sendBuffer, 54);  // 54バイト
+  // 2 byte：シンクタイム
+  storeRC(synctime, &sendBuffer[55]);
+
+  Udp.write(sendBuffer, 60);  // 60バイト
   Udp.endPacket();
 
   // bufferをクリア
