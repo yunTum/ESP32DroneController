@@ -1,4 +1,3 @@
-
 uint16_t servo[6];
 int maxm = 1800; // 1800 output
 #define minm 200 // 200 output
@@ -14,12 +13,66 @@ int maxm = 1800; // 1800 output
 const float powerRate = 1.5;
 
 // モーターごとの補正係数を追加
-const float motor_correction[] = {
+float motor_correction[] = {
   0.94, // RightBack
   1.02, // RightTop
   0.78, // LeftBack
   0.85  // LeftTop
 };  // 必要に応じて調整
+
+// モーターキャリブレーション用の変数
+#define CALIB_DURATION 3000  // 各モーターのテスト時間（ミリ秒）
+#define CALIB_POWER 300     // キャリブレーション時の出力値
+
+// キャリブレーションモード用の関数
+void calibrateMotors() {
+  // 安全のため、最初はすべてのモーターを停止
+  for(int i = 0; i < 4; i++) {
+    servo[i] = 0;
+  }
+  
+  // 各モーターを順番にテスト
+  for(int motor = 0; motor < 4; motor++) {
+    // 3秒待機（準備時間）
+    delay(3000);
+    
+    // 現在のモーターのみを回転
+    servo[motor] = CALIB_POWER;
+    // 他のモーターを停止
+    for(int i = 0; i < 4; i++) {
+      if(i != motor) servo[i] = 0;
+    }
+    writeMot();
+    
+    // テスト時間だけ回転
+    delay(CALIB_DURATION);
+    
+    // モーターを停止
+    servo[motor] = 0;
+    
+    // モーター名を表示
+    Serial.print("Motor ");
+    switch(motor) {
+      case 0: Serial.println("RightBack tested"); break;
+      case 1: Serial.println("RightTop tested"); break;
+      case 2: Serial.println("LeftBack tested"); break;
+      case 3: Serial.println("LeftTop tested"); break;
+    }
+  }
+}
+
+// 実際のモーター出力に補正を適用する関数
+void applyMotorCorrections() {
+  servo[0] = CALIB_POWER * motor_correction[0];  // RightBack
+  servo[1] = CALIB_POWER * motor_correction[1];  // RightTop
+  servo[2] = CALIB_POWER * motor_correction[2];  // LeftBack
+  servo[3] = CALIB_POWER * motor_correction[3];  // LeftTop
+  writeMot();
+  // テスト時間だけ回転
+  delay(CALIB_DURATION);
+  servo[0] = 0; servo[1] = 0; servo[2] = 0; servo[3] = 0;
+  writeMot();
+}
 
 void mix()
 {
@@ -79,10 +132,14 @@ const int MotChannel3 = 3;
 
 void writeMot() 
 {
-  ledcWrite(MotChannel0, servo[0]);
-  ledcWrite(MotChannel1, servo[1]);
-  ledcWrite(MotChannel2, servo[2]);
-  ledcWrite(MotChannel3, servo[3]);
+  // ledcWrite(MotChannel0, servo[0]);
+  // ledcWrite(MotChannel1, servo[1]);
+  // ledcWrite(MotChannel2, servo[2]);
+  // ledcWrite(MotChannel3, servo[3]);
+  ledcWrite(MotPin0, servo[0]);
+  ledcWrite(MotPin1, servo[1]);
+  ledcWrite(MotPin2, servo[2]);
+  ledcWrite(MotPin3, servo[3]);
 }
 
 void initMot() 
@@ -91,16 +148,36 @@ void initMot()
   // ledcSetup(MotChannel1, 15000, 11); // 500 hz PWM, 11-bit resolution 720motor
   // ledcSetup(MotChannel2, 15000, 11); // 500 hz PWM, 11-bit resolution 720motor
   // ledcSetup(MotChannel3, 15000, 11); // 500 hz PWM, 11-bit resolution 720motor
-  ledcSetup(MotChannel0, 20000, 11); // 500 hz PWM, 11-bit resolution
-  ledcSetup(MotChannel1, 20000, 11); // 500 hz PWM, 11-bit resolution
-  ledcSetup(MotChannel2, 20000, 11); // 500 hz PWM, 11-bit resolution
-  ledcSetup(MotChannel3, 20000, 11); // 500 hz PWM, 11-bit resolution
-  ledcAttachPin(MotPin0, MotChannel0); 
-  ledcAttachPin(MotPin1, MotChannel1); 
-  ledcAttachPin(MotPin2, MotChannel2); 
-  ledcAttachPin(MotPin3, MotChannel3); 
-  ledcWrite(MotChannel0, THRO_3V3_MIN);
-  ledcWrite(MotChannel1, THRO_3V3_MIN);
-  ledcWrite(MotChannel2, THRO_3V3_MIN);
-  ledcWrite(MotChannel3, THRO_3V3_MIN);
+  // ledcSetup(MotChannel0, 20000, 11); // 500 hz PWM, 11-bit resolution
+  // ledcSetup(MotChannel1, 20000, 11); // 500 hz PWM, 11-bit resolution
+  // ledcSetup(MotChannel2, 20000, 11); // 500 hz PWM, 11-bit resolution
+  // ledcSetup(MotChannel3, 20000, 11); // 500 hz PWM, 11-bit resolution
+  // ledcAttachPin(MotPin0, MotChannel0); 
+  // ledcAttachPin(MotPin1, MotChannel1); 
+  // ledcAttachPin(MotPin2, MotChannel2); 
+  // ledcAttachPin(MotPin3, MotChannel3); 
+
+  // ESP32のCore V3.0.0以降では、ledcSetupとledcAttachPinの代わりにledcAttachを使用する必要がある
+  ledcAttach(MotPin0, 20000, 11);
+  ledcAttach(MotPin1, 20000, 11);
+  ledcAttach(MotPin2, 20000, 11);
+  ledcAttach(MotPin3, 20000, 11);
+  // ledcAttachChannel(MotPin0, 20000, 11, MotChannel0);
+  // ledcAttachChannel(MotPin1, 20000, 11, MotChannel1);
+  // ledcAttachChannel(MotPin2, 20000, 11, MotChannel2);
+  // ledcAttachChannel(MotPin3, 20000, 11, MotChannel3);
+  // ledcWrite(MotChannel0, THRO_3V3_MIN);
+  // ledcWrite(MotChannel1, THRO_3V3_MIN);
+  // ledcWrite(MotChannel2, THRO_3V3_MIN);
+  // ledcWrite(MotChannel3, THRO_3V3_MIN);
+  ledcWrite(MotPin0, THRO_3V3_MIN);
+  ledcWrite(MotPin1, THRO_3V3_MIN);
+  ledcWrite(MotPin2, THRO_3V3_MIN);
+  ledcWrite(MotPin3, THRO_3V3_MIN);
+
+  delay(2000);
+  ledcWrite(MotPin0, 0);
+  ledcWrite(MotPin1, 0);
+  ledcWrite(MotPin2, 0);
+  ledcWrite(MotPin3, 0);
 }

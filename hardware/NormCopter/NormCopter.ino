@@ -156,6 +156,7 @@ void setup()
   Serial.println("G - Gyro raw");
   Serial.println("g - Gyro filt");
   Serial.println("A - Accel raw");
+  Serial.println("a - Accel filt");
   Serial.println("M - Madgwick");
   Serial.println("P - PID");
   Serial.println("S - Servo");
@@ -227,6 +228,8 @@ void loop()
   AccX = 0.01 * float(accADC[0]);  
   AccY = 0.01 * float(accADC[1]);  
   AccZ = 0.01 * float(accADC[2]);
+  if (debugvalue == 'a') 
+    Serial.printf("%4.0f %4.0f %4.0f \n", AccX, AccY, AccZ);
   
   Madgwick6DOF(GyroX,GyroY,GyroZ,AccX,AccY,AccZ,dt);
   if (debugvalue == 'M') 
@@ -242,6 +245,15 @@ void loop()
   
   if (led) digitalWrite(LED_YELLOW, HIGH);
   else      digitalWrite(LED_YELLOW, LOW);
+
+  if (calibrateRequest) {
+    if (armed) {
+      applyMotorCorrections();
+    } else {
+      calibrateMotors();
+    }
+    calibrateRequest = false;
+  }
 
   if (debugvalue == 'P') Serial.printf("%4.0f %4.0f %4.0f \n", roll_PID, pitch_PID, yaw_PID);
 
