@@ -10,6 +10,8 @@ from viewer import DroneViewer
 class ControllerWindow():
   def __init__(self):
     self.client = None
+    self.client_ip = '192.168.40.234'
+    self.client_port = 4210
     self.create_window()
     self.resource_data = data_define.RemoteData()
     self.drone_data = data_define.DroneData()
@@ -35,24 +37,29 @@ class ControllerWindow():
     # レイアウトの定義
     self.layout = [
         [
-          eg.Frame('Network', layout=[
-                [eg.Button('Connect', key='-CONNECT-', disabled=False)],
-                [eg.Button('Disconnect', key='-DISCONNECT-', disabled=True)]
+          eg.Frame('Control', layout=[
+            [eg.Frame('Roll & Pitch', layout=[
+                [eg.Slider(range=(1015, 2015), default_value=1515, orientation='h', size=(20, 10), key='-ROLL-',  enable_events=True),
+                eg.Slider(range=(2015,1015), default_value=1515, orientation='v', size=(10, 20), key='-PITCH-',  enable_events=True)],
+            ])],
+          
+            [eg.Frame('Rudder & Throttle', layout=[
+                [eg.Slider(range=(1015, 2015), default_value=1515, orientation='h', size=(20, 10), key='-RUDDER-',  enable_events=True),
+                eg.Slider(range=(1600,50), default_value=50, orientation='v', size=(10, 20), key='-THROTTLE-',  enable_events=True)],
+              ])],
           ]),
-          eg.Frame('Roll & Pitch', layout=[
-              [eg.Slider(range=(1015, 2015), default_value=1515, orientation='h', size=(20, 10), key='-ROLL-',  enable_events=True),
-              eg.Slider(range=(2015,1015), default_value=1515, orientation='v', size=(10, 20), key='-PITCH-',  enable_events=True)],
-          ]),
-          eg.Frame('Rudder & Throttle', layout=[
-              [eg.Slider(range=(1015, 2015), default_value=1515, orientation='h', size=(20, 10), key='-RUDDER-',  enable_events=True),
-              eg.Slider(range=(1600,50), default_value=50, orientation='v', size=(10, 20), key='-THROTTLE-',  enable_events=True)],
-          ]),
-          eg.Frame('Channel', layout=[
-              [eg.Button('ARM', key='-ARM-'), eg.Text('DISARMED', key='-ARM-', size=(10, 0))],
-              [eg.Button('Radio6', key='-RADIO6-'), eg.Text('OFF', key='-SWRADIO6-')],
-              [eg.Button('Radio7', key='-RADIO7-'), eg.Text('OFF', key='-SWRADIO7-')],
-              [eg.Button('Calibrate', key='-CALIBRATE-'), eg.Text('OFF', key='-CALIBRATE-')],
-              [eg.Button('Default', key='-Default-')],
+          eg.Frame('Communication', layout=[
+            [eg.Frame('Network', layout=[
+                [eg.Textarea(text=self.client_ip, key='-IP-', size=(15, 0)), eg.Textarea(text=self.client_port, key='-PORT-', size=(5, 0))],
+                [eg.Button('Connect', key='-CONNECT-', disabled=False),eg.Button('Disconnect', key='-DISCONNECT-', disabled=True)]
+            ])],
+            [eg.Frame('Channel', layout=[
+                [eg.Button('ARM', key='-ARM-'), eg.Text('DISARMED', key='-ARM-', size=(10, 0))],
+                [eg.Button('Radio6', key='-RADIO6-'), eg.Text('OFF', key='-SWRADIO6-')],
+                [eg.Button('Radio7', key='-RADIO7-'), eg.Text('OFF', key='-SWRADIO7-')],
+                [eg.Button('Calibrate', key='-CALIBRATE-'), eg.Text('OFF', key='-CALIBRATE-')],
+                [eg.Button('Default', key='-Default-')],
+            ])],
           ]),
           eg.Frame('Drone Info', layout=[
                 [eg.Text('Battery: ---V', key='-BATTERY-')],
@@ -79,7 +86,7 @@ class ControllerWindow():
         ]
     ]
     # ウィンドウの生成
-    self.window = eg.Window('Remote Control', self.layout, finalize=True, resizable=True, size=(1550, 450))
+    self.window = eg.Window('Remote Control', self.layout, finalize=True, resizable=True, size=(1200, 450))
     
   def run(self):
     # self.network_thread.start()
@@ -90,7 +97,9 @@ class ControllerWindow():
             break
         if event == '-CONNECT-':
           if (not self.server_state):
-            self.client = network.TcpClient()
+            self.client_ip = self.window['-IP-'].get()
+            self.client_port = self.window['-PORT-'].get()
+            self.client = network.TcpClient(self.client_ip, self.client_port)
             self.server_state = True
             self.window['-CONNECT-'].update(disabled=True)
             self.window['-DISCONNECT-'].update(disabled=False)
@@ -163,7 +172,7 @@ class ControllerWindow():
           # else:
             # キャリブレーション完了を待機
             # while self.resource_data.rc_value[7] > 1615:
-            #     time.sleep(0.1)  # 完了待ち
+            time.sleep(0.4)  # 完了待ち
             # self.resource_data.rc_value[7] = 2015
             self.window['-CALIBRATE-'].update(disabled=False)
             # self.resource_data.rc_value[7] = 1515
@@ -195,7 +204,7 @@ class ControllerWindow():
       try:
           data, addr = self.client.udp_server.recvfrom(self.client.read_size)
           if len(data) != self.client.read_size:
-            print(f"Invalid data size: {len(data)} bytes, expected 30 bytes")
+            print(f"Invalid data size: {len(data)} bytes, expected 60 bytes")
             continue
           if not self.client.remote_address:
             self.client.remote_address = addr
