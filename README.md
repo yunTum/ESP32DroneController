@@ -1,7 +1,10 @@
 # ESP32DroneController
 
 ## Debug Software
-![image](https://github.com/user-attachments/assets/4ac50480-a47c-44ec-af5b-e7f07940212b)
+![image](https://github.com/user-attachments/assets/c4f535d9-d38b-4987-8357-5949bdca6bbc)
 
 ## Web Setting
-![image](https://github.com/user-attachments/assets/3863bb1b-6901-47a2-9d65-20448beee9a8)
+![image](https://github.com/user-attachments/assets/22c5aad5-653e-42e0-aa2b-cab74a833719)
+
+## FlightAnalyzer
+![image](https://github.com/user-attachments/assets/9a215073-be25-4ea8-93e0-9c091d698caf)
