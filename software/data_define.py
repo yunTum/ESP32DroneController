@@ -51,7 +51,7 @@ class DroneData():
         self.calculated_altitude = 0
         self.last_att = 0
 
-    def parse_data(self, data):
+    def parse_data(self, data, is_armed):
         # print(f"Data: {data} data[0]: {data[0]}")
         data_len = len(data)
         if (data_len == 60) and data[0] == 0x55:
@@ -170,32 +170,33 @@ class DroneData():
             self.ip['pitch'] = self.imu['pitch'] + self.pid['pitch']
             self.ip['yaw'] = self.imu['yaw'] + self.pid['yaw']
 
-            log_data = [
-                f"{time.strftime('%Y-%m-%d %H:%M:%S')}",  # タイムスタンプ
-                f"{self.seqno}",                          # シーケンス番号
-                f"{self.sync_time}",                      # シンクタイム
-                f"{','.join(map(str, self.servo))}",      # サーボ値
-                f"{self.pid['roll']:.2f}",                # PID Roll
-                f"{self.pid['pitch']:.2f}",               # PID Pitch
-                f"{self.pid['yaw']:.2f}",                 # PID Yaw
-                f"{self.imu['roll']:.2f}",                # IMU Roll
-                f"{self.imu['pitch']:.2f}",               # IMU Pitch
-                f"{self.imu['yaw']:.2f}",                 # IMU Yaw
-                f"{self.gyro['x']:.2f}",                  # ジャイロX
-                f"{self.gyro['y']:.2f}",                  # ジャイロY
-                f"{self.gyro['z']:.2f}",                  # ジャイロZ
-                f"{self.acc['x']:.2f}",                   # 加速度X
-                f"{self.acc['y']:.2f}",                   # 加速度Y
-                f"{self.acc['z']:.2f}",                   # 加速度Z
-                f"{self.battery:.2f}",                    # バッテリー電圧
-                f"{self.altitude:.2f}",                   # 高度
-                f"{self.temperature:.2f}",                # 温度
-                f"{self.calculated_altitude:.2f}"         # 算出高度
-            ]
-            
-            # CSVファイルに書き込み
-            with open('./flight_log/log.csv', 'a', encoding='utf-8') as f:
-                f.write(','.join(log_data) + '\n')
+            if is_armed:
+                log_data = [
+                    f"{time.strftime('%Y-%m-%d %H:%M:%S')}",  # タイムスタンプ
+                    f"{self.seqno}",                          # シーケンス番号
+                    f"{self.sync_time}",                      # シンクタイム
+                    f"{','.join(map(str, self.servo))}",      # サーボ値
+                    f"{self.pid['roll']:.2f}",                # PID Roll
+                    f"{self.pid['pitch']:.2f}",               # PID Pitch
+                    f"{self.pid['yaw']:.2f}",                 # PID Yaw
+                    f"{self.imu['roll']:.2f}",                # IMU Roll
+                    f"{self.imu['pitch']:.2f}",               # IMU Pitch
+                    f"{self.imu['yaw']:.2f}",                 # IMU Yaw
+                    f"{self.gyro['x']:.2f}",                  # ジャイロX
+                    f"{self.gyro['y']:.2f}",                  # ジャイロY
+                    f"{self.gyro['z']:.2f}",                  # ジャイロZ
+                    f"{self.acc['x']:.2f}",                   # 加速度X
+                    f"{self.acc['y']:.2f}",                   # 加速度Y
+                    f"{self.acc['z']:.2f}",                   # 加速度Z
+                    f"{self.battery:.2f}",                    # バッテリー電圧
+                    f"{self.altitude:.2f}",                   # 高度
+                    f"{self.temperature:.2f}",                # 温度
+                    f"{self.calculated_altitude:.2f}"         # 算出高度
+                ]
+                
+                # CSVファイルに書き込み
+                with open('./flight_log/log.csv', 'a', encoding='utf-8') as f:
+                    f.write(','.join(log_data) + '\n')
 
             return True
             # エラー時のログ

@@ -1,15 +1,14 @@
 import socket
 
 class TcpClient():
-  def __init__(self):
+  def __init__(self, client_ip = '192.168.40.234', client_port = 4210):
     self.server_ip = '127.0.0.1'
     self.server_port = 4211
     # self.listen_num = 5
     self.buffer_size = 1024
     self.read_size = 60
-    self.client_ip = '192.168.40.234' # シリアル出力で表示されるIPを用いる
-    # self.client_ip = '192.168.40.39'
-    self.client_port = 4210
+    self.client_ip = client_ip # シリアル出力で表示されるIPを用いる
+    self.client_port = client_port
     self.udp_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     self.udp_server.bind(('0.0.0.0', self.server_port))  # 受信用にバインド
     self.udp_server.settimeout(1.0)

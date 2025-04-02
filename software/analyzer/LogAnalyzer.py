@@ -4,6 +4,12 @@ import numpy as np
 from pathlib import Path
 import matplotlib.dates as mdates
 from datetime import datetime
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                           QHBoxLayout, QPushButton, QLabel, QFileDialog, 
+                           QComboBox, QMessageBox, QScrollArea, QTabWidget)
+from PyQt5.QtCore import Qt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import sys
 
 def analyze_log(file_path):
     # CSVファイルを読み込む
@@ -278,12 +284,23 @@ def load_log_data(file_path):
     df = pd.read_csv(file_path, parse_dates=['timestamp'])
     return df
 
-def plot_flight_data(df):
+def plot_flight_data(df, fig=None):
+    """飛行データをプロットする関数
+    Args:
+        df: データフレーム
+        fig: 既存のFigureオブジェクト（GUI表示用）
+    """
     # 日本語フォントの設定
     plt.rcParams['font.family'] = 'MS Gothic'
     
-    # サブプロットの設定（6つのグラフを作成）
-    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(15, 18))
+    # 新しいFigureを作成するか、既存のものを使用
+    if fig is None:
+        fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(15, 18))
+    else:
+        # 既存のFigureをクリア
+        fig.clear()
+        # サブプロットを作成
+        ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = fig.subplots(3, 2)
     
     # 時間軸のフォーマット設定
     time_format = mdates.DateFormatter('%H:%M:%S')
@@ -292,8 +309,8 @@ def plot_flight_data(df):
     ax1.plot(df['timestamp'], df['imu_roll'], label='Roll')
     ax1.plot(df['timestamp'], df['imu_pitch'], label='Pitch')
     ax1.plot(df['timestamp'], df['imu_yaw'], label='Yaw')
-    ax1.set_title('IMU角度')
-    ax1.set_ylabel('角度 (度)')
+    ax1.set_title('IMU Angle')
+    ax1.set_ylabel('Angle (deg)')
     ax1.legend()
     ax1.grid(True)
     ax1.xaxis.set_major_formatter(time_format)
@@ -302,8 +319,8 @@ def plot_flight_data(df):
     ax2.plot(df['timestamp'], df['pid_roll'], label='Roll')
     ax2.plot(df['timestamp'], df['pid_pitch'], label='Pitch')
     ax2.plot(df['timestamp'], df['pid_yaw'], label='Yaw')
-    ax2.set_title('PID出力')
-    ax2.set_ylabel('出力値')
+    ax2.set_title('PID Output')
+    ax2.set_ylabel('Output value')
     ax2.legend()
     ax2.grid(True)
     ax2.xaxis.set_major_formatter(time_format)
@@ -312,8 +329,8 @@ def plot_flight_data(df):
     ax3.plot(df['timestamp'], df['gyro_x'], label='X')
     ax3.plot(df['timestamp'], df['gyro_y'], label='Y')
     ax3.plot(df['timestamp'], df['gyro_z'], label='Z')
-    ax3.set_title('ジャイロセンサー')
-    ax3.set_ylabel('角速度 (deg/s)')
+    ax3.set_title('Gyroscope')
+    ax3.set_ylabel('Angular velocity (deg/s)')
     ax3.legend()
     ax3.grid(True)
     ax3.xaxis.set_major_formatter(time_format)
@@ -322,8 +339,8 @@ def plot_flight_data(df):
     ax4.plot(df['timestamp'], df['acc_x'], label='X')
     ax4.plot(df['timestamp'], df['acc_y'], label='Y')
     ax4.plot(df['timestamp'], df['acc_z'], label='Z')
-    ax4.set_title('加速度センサー')
-    ax4.set_ylabel('加速度 (m/s²)')
+    ax4.set_title('Accelerometer')
+    ax4.set_ylabel('Acceleration (m/s²)')
     ax4.legend()
     ax4.grid(True)
     ax4.xaxis.set_major_formatter(time_format)
@@ -333,11 +350,10 @@ def plot_flight_data(df):
     ax5.plot(df['timestamp'], df['servo2'], label='Servo 2(RightTop)')
     ax5.plot(df['timestamp'], df['servo3'], label='Servo 3(LeftBack)')
     ax5.plot(df['timestamp'], df['servo4'], label='Servo 4(LeftTop)')
-    ax5.set_title('サーボモーター出力')
-    ax5.set_ylabel('サーボ値')
+    ax5.set_title('Servo Output')
+    ax5.set_ylabel('Servo value')
     ax5.legend()
     ax5.grid(True)
-
     ax5.xaxis.set_major_formatter(time_format)
     
     # 6. バッテリー、高度、温度のプロット
@@ -351,9 +367,9 @@ def plot_flight_data(df):
     line2 = ax6_2.plot(df['timestamp'], df['altitude'], color=color2, label='高度')
     line3 = ax6_3.plot(df['timestamp'], df['temperature'], color=color3, label='温度')
     
-    ax6_1.set_ylabel('電圧 (V)', color=color1)
-    ax6_2.set_ylabel('高度 (m)', color=color2)
-    ax6_3.set_ylabel('温度 (℃)', color=color3)
+    ax6_1.set_ylabel('Temperature (℃)', color=color1)
+    ax6_2.set_ylabel('Altitude (m)', color=color2)
+    ax6_3.set_ylabel('Temperature (℃)', color=color3)
     ax6_3.spines['right'].set_position(('outward', 60))
     
     # 凡例の結合
@@ -364,11 +380,12 @@ def plot_flight_data(df):
     ax6.xaxis.set_major_formatter(time_format)
     
     # グラフのレイアウト調整
-    plt.tight_layout()
+    fig.tight_layout()
     
-    # グラフを保存
-    plt.savefig('flight_log.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    # GUI表示の場合は保存しない
+    if fig is None:
+        plt.savefig('flight_log.png', dpi=300, bbox_inches='tight')
+        plt.show()
 
 def split_data_by_sequence(df):
     """シーケンス番号の連続性で飛行セッションを分割"""
@@ -425,50 +442,328 @@ def select_session(sessions):
         except ValueError:
             print("数字を入力してください")
 
-if __name__ == "__main__":
-    # # 最新のログファイルを自動的に選択
-    # log_dir = Path("../Log")
-    # log_files = list(log_dir.glob("drone_log_*.csv"))
-    # if not log_files:
-    #     print("ログファイルが見つかりません")
-    #     exit(1)
+def plot_imu_pid_pattern(df, fig=None):
+    """IMUとPIDのパターンをプロット"""
+    if fig is None:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12))
+    else:
+        fig.clear()
+        ax1, ax2 = fig.subplots(2, 1)
     
-    # # 最新のログファイルを選択
-    # latest_log = max(log_files, key=lambda x: x.stat().st_mtime)
-    # # n個前のログファイルを選択
-    # n = 2
-    # latest_log = log_files[-n]
-    # print(f"Analyzing: {latest_log}")
+    time_format = mdates.DateFormatter('%H:%M:%S')
     
-    # analyze_log(latest_log)
-    # df = pd.read_csv(latest_log)
-    # analyze_phase(df)
-    # # 現在の設定値
-    # CURRENT_PID = {
-    #     'rate': {
-    #         'roll_pitch': {'Kp': 0.25, 'Ki': 0.01, 'Kd': 0.09},
-    #         'yaw': {'Kp': 0.25, 'Ki': 0.01, 'Kd': 0.05}
-    #     },
-    #     'angle': {
-    #         'roll_pitch': {'Kp': 0.20, 'Ki': 0.01, 'Kd': 0.01},
-    #         'yaw': {'Kp': 0.10, 'Ki': 0.01, 'Kd': 0.07}
-    #     }
-    # }
-    # analyze_pid_coefficients(df, CURRENT_PID)
+    # IMU角度のプロット
+    ax1.plot(df['timestamp'], df['imu_roll'], label='Roll')
+    ax1.plot(df['timestamp'], df['imu_pitch'], label='Pitch')
+    ax1.plot(df['timestamp'], df['imu_yaw'], label='Yaw')
+    ax1.set_title('IMU Angle')
+    ax1.set_ylabel('Angle (deg)')
+    ax1.legend()
+    ax1.grid(True)
+    ax1.xaxis.set_major_formatter(time_format)
+    
+    # PID出力のプロット
+    ax2.plot(df['timestamp'], df['pid_roll'], label='Roll')
+    ax2.plot(df['timestamp'], df['pid_pitch'], label='Pitch')
+    ax2.plot(df['timestamp'], df['pid_yaw'], label='Yaw')
+    ax2.set_title('PID Output')
+    ax2.set_ylabel('Output value')
+    ax2.legend()
+    ax2.grid(True)
+    ax2.xaxis.set_major_formatter(time_format)
+    
+    fig.tight_layout()
 
-    try:
-        # CSVファイルを読み込む
-        df = pd.read_csv('../flight_log/log.csv', parse_dates=['timestamp'])
-        # セッションごとに分割
-        sessions = split_data_by_sequence(df)
+def plot_servo_pid_pattern(df, fig=None):
+    """サーボとPIDのパターンをプロット"""
+    if fig is None:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12))
+    else:
+        fig.clear()
+        ax1, ax2 = fig.subplots(2, 1)
+    
+    time_format = mdates.DateFormatter('%H:%M:%S')
+    
+    # サーボ値のプロット
+    ax1.plot(df['timestamp'], df['servo1'], label='Servo 1(RightBack)')
+    ax1.plot(df['timestamp'], df['servo2'], label='Servo 2(RightTop)')
+    ax1.plot(df['timestamp'], df['servo3'], label='Servo 3(LeftBack)')
+    ax1.plot(df['timestamp'], df['servo4'], label='Servo 4(LeftTop)')
+    ax1.set_title('Servo Output')
+    ax1.set_ylabel('Servo value')
+    ax1.legend()
+    ax1.grid(True)
+    ax1.xaxis.set_major_formatter(time_format)
+    
+    # PID出力のプロット
+    ax2.plot(df['timestamp'], df['pid_roll'], label='Roll')
+    ax2.plot(df['timestamp'], df['pid_pitch'], label='Pitch')
+    ax2.plot(df['timestamp'], df['pid_yaw'], label='Yaw')
+    ax2.set_title('PID Output')
+    ax2.set_ylabel('Output value')
+    ax2.legend()
+    ax2.grid(True)
+    ax2.xaxis.set_major_formatter(time_format)
+    
+    fig.tight_layout()
+
+def plot_servo_battery_pattern(df, fig=None):
+    """サーボとバッテリー、温度のパターンをプロット"""
+    if fig is None:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12))
+    else:
+        fig.clear()
+        ax1, ax2 = fig.subplots(2, 1)
+    
+    time_format = mdates.DateFormatter('%H:%M:%S')
+    
+    # サーボ値のプロット
+    ax1.plot(df['timestamp'], df['servo1'], label='Servo 1(RightBack)')
+    ax1.plot(df['timestamp'], df['servo2'], label='Servo 2(RightTop)')
+    ax1.plot(df['timestamp'], df['servo3'], label='Servo 3(LeftBack)')
+    ax1.plot(df['timestamp'], df['servo4'], label='Servo 4(LeftTop)')
+    ax1.set_title('Servo Output')
+    ax1.set_ylabel('Servo value')
+    ax1.legend()
+    ax1.grid(True)
+    ax1.xaxis.set_major_formatter(time_format)
+    
+    # バッテリーと温度のプロット
+    ax2_1 = ax2
+    ax2_2 = ax2.twinx()
+    
+    color1, color2 = '#1f77b4', '#ff7f0e'
+    
+    line1 = ax2_1.plot(df['timestamp'], df['battery'], color=color1, label='Battery')
+    line2 = ax2_2.plot(df['timestamp'], df['temperature'], color=color2, label='Temperature')
+    
+    ax2_1.set_ylabel('Voltage (V)', color=color1)
+    ax2_2.set_ylabel('Temperature (℃)', color=color2)
+    
+    lines = line1 + line2
+    labels = [l.get_label() for l in lines]
+    ax2.legend(lines, labels, loc='upper right')
+    ax2.grid(True)
+    ax2.xaxis.set_major_formatter(time_format)
+    
+    fig.tight_layout()
+
+def plot_accel_pid_pattern(df, fig=None):
+    """加速度とPIDのパターンをプロット"""
+    if fig is None:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12))
+    else:
+        fig.clear()
+        ax1, ax2 = fig.subplots(2, 1)
+    
+    time_format = mdates.DateFormatter('%H:%M:%S')
+    
+    # 加速度データのプロット
+    ax1.plot(df['timestamp'], df['acc_x'], label='X')
+    ax1.plot(df['timestamp'], df['acc_y'], label='Y')
+    ax1.plot(df['timestamp'], df['acc_z'], label='Z')
+    ax1.set_title('Accelerometer')
+    ax1.set_ylabel('Acceleration (m/s²)')
+    ax1.legend()
+    ax1.grid(True)
+    ax1.xaxis.set_major_formatter(time_format)
+    
+    # PID出力のプロット
+    ax2.plot(df['timestamp'], df['pid_roll'], label='Roll')
+    ax2.plot(df['timestamp'], df['pid_pitch'], label='Pitch')
+    ax2.plot(df['timestamp'], df['pid_yaw'], label='Yaw')
+    ax2.set_title('PID Output')
+    ax2.set_ylabel('Output value')
+    ax2.legend()
+    ax2.grid(True)
+    ax2.xaxis.set_major_formatter(time_format)
+    
+    fig.tight_layout()
+
+def plot_gyro_pid_pattern(df, fig=None):
+    """ジャイロとPIDのパターンをプロット"""
+    if fig is None:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12))
+    else:
+        fig.clear()
+        ax1, ax2 = fig.subplots(2, 1)
+    
+    time_format = mdates.DateFormatter('%H:%M:%S')
+    
+    # ジャイロデータのプロット
+    ax1.plot(df['timestamp'], df['gyro_x'], label='X')
+    ax1.plot(df['timestamp'], df['gyro_y'], label='Y')
+    ax1.plot(df['timestamp'], df['gyro_z'], label='Z')
+    ax1.set_title('Gyroscope')
+    ax1.set_ylabel('Angular velocity (deg/s)')
+    ax1.legend()
+    ax1.grid(True)
+    ax1.xaxis.set_major_formatter(time_format)
+    
+    # PID出力のプロット
+    ax2.plot(df['timestamp'], df['pid_roll'], label='Roll')
+    ax2.plot(df['timestamp'], df['pid_pitch'], label='Pitch')
+    ax2.plot(df['timestamp'], df['pid_yaw'], label='Yaw')
+    ax2.set_title('PID Output')
+    ax2.set_ylabel('Output value')
+    ax2.legend()
+    ax2.grid(True)
+    ax2.xaxis.set_major_formatter(time_format)
+    
+    fig.tight_layout()
+
+class LogAnalyzerGUI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('ドローンログ分析ツール')
+        self.setGeometry(100, 100, 1200, 800)
         
-        print(f"合計 {len(sessions)} セッションを検出しました。")
+        # メインウィジェットとレイアウトの設定
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
+        layout = QVBoxLayout(main_widget)
         
-        # セッションを選択
-        session_num, selected_session = select_session(sessions)  # 選択されたセッション番号も取得
+        # ファイル選択部分
+        file_layout = QHBoxLayout()
+        self.file_label = QLabel('ログファイル: 未選択')
+        self.select_file_btn = QPushButton('ファイルを選択')
+        self.select_file_btn.clicked.connect(self.select_file)
+        file_layout.addWidget(self.file_label)
+        file_layout.addWidget(self.select_file_btn)
+        layout.addLayout(file_layout)
         
-        # 選択されたセッションを解析
-        analyze_session(selected_session, session_num)
-        plot_flight_data(selected_session)
-    except Exception as e:
-        print(f"エラーが発生しました: {e}")
+        # セッション選択部分
+        session_layout = QHBoxLayout()
+        self.session_label = QLabel('セッション:')
+        self.session_combo = QComboBox()
+        self.session_combo.currentIndexChanged.connect(self.on_session_changed)
+        session_layout.addWidget(self.session_label)
+        session_layout.addWidget(self.session_combo)
+        layout.addLayout(session_layout)
+        
+        # 分析ボタン
+        self.analyze_btn = QPushButton('分析を実行')
+        self.analyze_btn.clicked.connect(self.run_analysis)
+        self.analyze_btn.setEnabled(False)
+        layout.addWidget(self.analyze_btn)
+        
+        # ステータスラベル
+        self.status_label = QLabel('')
+        layout.addWidget(self.status_label)
+        
+        # タブウィジェットの作成
+        self.tab_widget = QTabWidget()
+        layout.addWidget(self.tab_widget)
+        
+        # 各タブの作成
+        self.tabs = []
+        self.canvases = []
+        self.figs = []
+        
+        # タブの作成
+        tab_names = [
+            'IMU vs. PID',
+            'Servo vs. PID',
+            'Servo vs. Battery, Temperature',
+            'Accelerometer vs. PID',
+            'Gyroscope vs. PID'
+        ]
+        
+        plot_functions = [
+            plot_imu_pid_pattern,
+            plot_servo_pid_pattern,
+            plot_servo_battery_pattern,
+            plot_accel_pid_pattern,
+            plot_gyro_pid_pattern
+        ]
+        
+        for name, plot_func in zip(tab_names, plot_functions):
+            tab = QWidget()
+            tab_layout = QVBoxLayout(tab)
+            
+            # スクロール可能なグラフ表示エリア
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            
+            # グラフ表示用のウィジェット
+            graph_widget = QWidget()
+            graph_layout = QVBoxLayout(graph_widget)
+            scroll.setWidget(graph_widget)
+            tab_layout.addWidget(scroll)
+            
+            self.tabs.append(tab)
+            self.canvases.append(None)
+            self.figs.append(None)
+            self.tab_widget.addTab(tab, name)
+        
+        self.df = None
+        self.sessions = []
+        
+    def select_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 'ログファイルを選択', '', 'CSV Files (*.csv)')
+        
+        if file_path:
+            try:
+                self.df = pd.read_csv(file_path, parse_dates=['timestamp'])
+                self.sessions = split_data_by_sequence(self.df)
+                
+                self.file_label.setText(f'ログファイル: {Path(file_path).name}')
+                self.session_combo.clear()
+                for i, session in enumerate(self.sessions, 1):
+                    duration = session['timestamp'].iloc[-1] - session['timestamp'].iloc[0]
+                    self.session_combo.addItem(
+                        f'セッション {i} ({duration.total_seconds():.1f}秒)')
+                
+                self.analyze_btn.setEnabled(True)
+                self.status_label.setText('ファイルを読み込みました')
+            except Exception as e:
+                QMessageBox.critical(self, 'エラー', f'ファイルの読み込みに失敗しました: {str(e)}')
+    
+    def on_session_changed(self, index):
+        if index >= 0 and self.sessions:
+            session = self.sessions[index]
+            duration = session['timestamp'].iloc[-1] - session['timestamp'].iloc[0]
+            self.status_label.setText(
+                f'セッション {index + 1} を選択: {duration.total_seconds():.1f}秒')
+    
+    def run_analysis(self):
+        if not self.sessions or self.session_combo.currentIndex() < 0:
+            return
+            
+        try:
+            selected_session = self.sessions[self.session_combo.currentIndex()]
+            analyze_session(selected_session, self.session_combo.currentIndex() + 1)
+            
+            # 各タブのグラフを更新
+            plot_functions = [
+                plot_imu_pid_pattern,
+                plot_servo_pid_pattern,
+                plot_servo_battery_pattern,
+                plot_accel_pid_pattern,
+                plot_gyro_pid_pattern
+            ]
+            
+            for i, (canvas, fig, plot_func) in enumerate(zip(self.canvases, self.figs, plot_functions)):
+                # 既存のグラフをクリア
+                if canvas:
+                    self.tabs[i].findChild(QScrollArea).widget().layout().removeWidget(canvas)
+                    canvas.deleteLater()
+                
+                # 新しいグラフを作成
+                self.figs[i] = plt.figure(figsize=(15, 12))
+                plot_func(selected_session, self.figs[i])
+                self.canvases[i] = FigureCanvas(self.figs[i])
+                self.tabs[i].findChild(QScrollArea).widget().layout().addWidget(self.canvases[i])
+            
+            self.status_label.setText('分析が完了しました')
+        except Exception as e:
+            QMessageBox.critical(self, 'エラー', f'分析中にエラーが発生しました: {str(e)}')
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = LogAnalyzerGUI()
+    window.show()
+    sys.exit(app.exec_())

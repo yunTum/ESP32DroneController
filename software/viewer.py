@@ -83,10 +83,13 @@ class DroneViewer(tk.Canvas):
         self.bind('<Destroy>', self.cleanup)
         
         self.initialized = False
+        self.init_attempts = 0
+        self.max_init_attempts = 5
+        self.init_delay = 1000  # 初期遅延時間（ミリ秒）
 
         # ウィンドウが表示されるまで待機
         self.update_idletasks()
-        self.after(600, self.initialize_gl)
+        self.after(self.init_delay, self.initialize_gl)
     
     def resize(self, event):
         """ウィンドウサイズが変更されたときに呼ばれる"""
@@ -144,14 +147,14 @@ class DroneViewer(tk.Canvas):
             if not self.hdc:
                 raise Exception(f"GetDC failed: {win32api.GetLastError()}")
 
-            # ピクセルフォーマットの設定
+            # より基本的なピクセルフォーマットの設定
             pfd = PIXELFORMATDESCRIPTOR()
             pfd.nSize = ctypes.sizeof(PIXELFORMATDESCRIPTOR)
             pfd.nVersion = 1
             pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER
             pfd.iPixelType = PFD_TYPE_RGBA
-            pfd.cColorBits = 24
-            pfd.cDepthBits = 16
+            pfd.cColorBits = 24  # 24ビットカラーに戻す
+            pfd.cDepthBits = 16  # 16ビット深度バッファ
             pfd.iLayerType = PFD_MAIN_PLANE
 
             # ピクセルフォーマットの選択と設定
@@ -162,14 +165,32 @@ class DroneViewer(tk.Canvas):
             if not SetPixelFormat(self.hdc, pixel_format, ctypes.byref(pfd)):
                 raise Exception(f"SetPixelFormat failed: {win32api.GetLastError()}")
 
-            # OpenGLコンテキストの作成
-            self.hrc = WGL.wglCreateContext(self.hdc)
+            # OpenGL 2.1コンテキストの作成を試みる
+            try:
+                # WGL_ARB_create_context拡張をチェック
+                if hasattr(WGL, 'wglCreateContextAttribsARB'):
+                    # OpenGL 2.1の属性を設定
+                    attribs = [
+                        WGL.CONTEXT_MAJOR_VERSION_ARB, 2,
+                        WGL.CONTEXT_MINOR_VERSION_ARB, 1,
+                        0
+                    ]
+                    self.hrc = WGL.wglCreateContextAttribsARB(self.hdc, None, attribs)
+                else:
+                    # 従来の方法でコンテキストを作成
+                    self.hrc = WGL.wglCreateContext(self.hdc)
+            except:
+                # エラーが発生した場合は従来の方法でコンテキストを作成
+                self.hrc = WGL.wglCreateContext(self.hdc)
+
             if not self.hrc:
-                raise Exception(f"wglCreateContext failed: {win32api.GetLastError()}")
+                error = win32api.GetLastError()
+                raise Exception(f"wglCreateContext failed: {error}")
 
             # コンテキストをカレントに設定
             if not WGL.wglMakeCurrent(self.hdc, self.hrc):
-                raise Exception(f"wglMakeCurrent failed: {win32api.GetLastError()}")
+                error = win32api.GetLastError()
+                raise Exception(f"wglMakeCurrent failed: {error}")
 
             return True
             
@@ -181,16 +202,27 @@ class DroneViewer(tk.Canvas):
     def initialize_gl(self):
         """OpenGLの初期化を実行"""
         if not self.initialized and self.winfo_ismapped():
-            if self.setup_pixel_format():
-                if self.init_gl():
-                    self.initialized = True
-                    self.draw_drone()
+            if self.init_attempts >= self.max_init_attempts:
+                print("OpenGL初期化の最大試行回数に達しました")
+                return
+
+            try:
+                if self.setup_pixel_format():
+                    if self.init_gl():
+                        self.initialized = True
+                        self.draw_drone()
+                        return
+                    else:
+                        print("OpenGL initialization failed")
                 else:
-                    print("OpenGL initialization failed")
-            else:
-                print("Pixel format setup failed")
-                # 再試行
-                self.after(300, self.initialize_gl)
+                    print("Pixel format setup failed")
+            except Exception as e:
+                print(f"初期化エラー: {str(e)}")
+
+            self.init_attempts += 1
+            # 再試行（待機時間を徐々に増やす）
+            self.init_delay += 500
+            self.after(self.init_delay, self.initialize_gl)
                 
     def init_gl(self):
         """OpenGLの初期化"""

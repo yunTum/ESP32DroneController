@@ -20,6 +20,8 @@ class ControllerWindow():
     # 3Dビューアの有効無効
     self.is_3d_viewer = True
 
+    self.flight_mode = False
+
     if self.is_3d_viewer:
       # DroneViewerの初期化
       # PySimpleGUIのウィンドウからTkinterのルートウィンドウを取得
@@ -59,6 +61,10 @@ class ControllerWindow():
                 [eg.Button('Radio7', key='-RADIO7-'), eg.Text('OFF', key='-SWRADIO7-')],
                 [eg.Button('Calibrate', key='-CALIBRATE-'), eg.Text('OFF', key='-CALIBRATE-')],
                 [eg.Button('Default', key='-Default-')],
+            ])],
+            [eg.Frame('Flight', layout=[
+                [eg.Text('Throttle:'), eg.InputText(key='-THROTTLE_INPUT-', size=(10,1), default_text='100')],
+                [eg.Button('Flight', key='-FLIGHT-'), eg.Text('OFF', key='-SWFLIGHT-')],
             ])],
           ]),
           eg.Frame('Drone Info', layout=[
@@ -176,7 +182,18 @@ class ControllerWindow():
             # self.resource_data.rc_value[7] = 2015
             self.window['-CALIBRATE-'].update(disabled=False)
             # self.resource_data.rc_value[7] = 1515
-          
+
+        elif event == '-FLIGHT-':
+          val = values['-THROTTLE_INPUT-']
+          if (self.flight_mode):
+            self.resource_data.rc_value[0] = 0
+            self.window['-SWFLIGHT-'].update("OFF")
+            self.flight_mode = False
+          else:
+            self.resource_data.rc_value[0] = int(val)
+            self.window['-SWFLIGHT-'].update("ON")
+            self.flight_mode = True
+
         elif event == '-Default-':
           self.resource_data.defalut_set()
           self.window['-PITCH-'].update(value=1515)
@@ -209,7 +226,7 @@ class ControllerWindow():
           if not self.client.remote_address:
             self.client.remote_address = addr
             print(f"Send Address is set: {addr}")
-          if self.drone_data.parse_data(data):
+          if self.drone_data.parse_data(data, self.resource_data.rc_value[4] > 1615):
               # GUIの更新
               self.window['-BATTERY-'].update(f"Battery: {self.drone_data.battery:.2f}V")
               self.window['-SERVO1-'].update(f"Servo1: {self.drone_data.servo[0]:.1f}")
