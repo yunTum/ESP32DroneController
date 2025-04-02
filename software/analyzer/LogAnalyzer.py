@@ -612,6 +612,37 @@ def plot_gyro_pid_pattern(df, fig=None):
     
     fig.tight_layout()
 
+def plot_altitude_servo_pattern(df, fig=None):
+    """高度とサーボのパターンをプロット"""
+    if fig is None:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12))
+    else:
+        fig.clear()
+        ax1, ax2 = fig.subplots(2, 1)
+    
+    time_format = mdates.DateFormatter('%H:%M:%S')
+    
+    # サーボデータのプロット
+    ax1.plot(df['timestamp'], df['servo1'], label='Servo 1(RightBack)')
+    ax1.plot(df['timestamp'], df['servo2'], label='Servo 2(RightTop)')
+    ax1.plot(df['timestamp'], df['servo3'], label='Servo 3(LeftBack)')
+    ax1.plot(df['timestamp'], df['servo4'], label='Servo 4(LeftTop)')
+    ax1.set_title('Servo Output')
+    ax1.set_ylabel('Servo value')
+    ax1.legend()
+    ax1.grid(True)
+    ax1.xaxis.set_major_formatter(time_format)
+
+    # 高度データのプロット
+    ax2.plot(df['timestamp'], df['altitude'], label='Altitude (raw)')
+    ax2.set_title('Altitude')
+    ax2.set_ylabel('Altitude (m)')
+    ax2.legend()
+    ax2.grid(True)
+    ax2.xaxis.set_major_formatter(time_format)
+    
+    fig.tight_layout()
+
 class LogAnalyzerGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -666,7 +697,8 @@ class LogAnalyzerGUI(QMainWindow):
             'Servo vs. PID',
             'Servo vs. Battery, Temperature',
             'Accelerometer vs. PID',
-            'Gyroscope vs. PID'
+            'Gyroscope vs. PID',
+            'Altitude vs. Servo'
         ]
         
         plot_functions = [
@@ -674,7 +706,8 @@ class LogAnalyzerGUI(QMainWindow):
             plot_servo_pid_pattern,
             plot_servo_battery_pattern,
             plot_accel_pid_pattern,
-            plot_gyro_pid_pattern
+            plot_gyro_pid_pattern,
+            plot_altitude_servo_pattern
         ]
         
         for name, plot_func in zip(tab_names, plot_functions):
@@ -743,7 +776,8 @@ class LogAnalyzerGUI(QMainWindow):
                 plot_servo_pid_pattern,
                 plot_servo_battery_pattern,
                 plot_accel_pid_pattern,
-                plot_gyro_pid_pattern
+                plot_gyro_pid_pattern,
+                plot_altitude_servo_pattern
             ]
             
             for i, (canvas, fig, plot_func) in enumerate(zip(self.canvases, self.figs, plot_functions)):
