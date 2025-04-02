@@ -38,10 +38,26 @@ void handleCmd()
       Ki_ayw = server.arg(i).toFloat();
     else if (server.argName(i) == "KDay") 
       Kd_ayw = server.arg(i).toFloat();
+    else if (server.argName(i) == "Kp_stable") 
+      Kp_stable = server.arg(i).toFloat();
+    else if (server.argName(i) == "Ki_stable") 
+      Ki_stable = server.arg(i).toFloat();
+    else if (server.argName(i) == "Kd_stable") 
+      Kd_stable = server.arg(i).toFloat();
     else if (server.argName(i) == "MaxPow") 
       maxm = server.arg(i).toInt();
     else if (server.argName(i) == "CommF") 
       storeacc(); 
+    else if (server.argName(i) == "motor1_correction") 
+      motor_correction[0] = server.arg(i).toFloat();
+    else if (server.argName(i) == "motor2_correction") 
+      motor_correction[1] = server.arg(i).toFloat();
+    else if (server.argName(i) == "motor3_correction") 
+      motor_correction[2] = server.arg(i).toFloat();
+    else if (server.argName(i) == "motor4_correction") 
+      motor_correction[3] = server.arg(i).toFloat();
+    else if (server.argName(i) == "powerRate") 
+      powerRate = server.arg(i).toFloat();
   }
   
   out =  "<!doctype html>\n";
@@ -121,6 +137,23 @@ void handleCmd()
   out += "<input type=\"submit\"><br>\n";
   out += "</form>\n";
   out += "<br>";
+
+  out += "<form method=\"post\">\n";
+  out += "Stable&emsp; KP\n";
+  out += "<input type=\"number\" name=\"Kp_stable\" step=\"0.01\" style=\"width:4em\" value=\"";
+  out += Kp_stable;
+  out += "\">&emsp;\n";
+  out += "KI\n";
+  out += "<input type=\"number\" name=\"Ki_stable\" step=\"0.01\" style=\"width:4em\" value=\"";
+  out += Ki_stable;
+  out += "\">&emsp;\n";
+  out += "KD\n";
+  out += "<input type=\"number\" name=\"Kd_stable\" step=\"0.01\" style=\"width:4em\" value=\"";
+  out += Kd_stable;
+  out += "\">&emsp;\n";
+  out += "<input type=\"submit\"><br>\n";
+  out += "</form>\n";
+  out += "<br>";
   
   out += "<form method=\"post\">\n";
   out += "MaxPower \n";
@@ -130,12 +163,64 @@ void handleCmd()
   out += "<input type=\"submit\"><br>\n";
   out += "</form>\n";
   out += "<br>";
+
+  out += "<form method=\"post\">\n";
+  out += "PowerRate \n";
+  out += "<input type=\"number\" name=\"powerRate\" step=\"0.01\" style=\"width:5em\" value=\"";
+  out += powerRate;
+  out += "\">&emsp;\n";
+  out += "<input type=\"submit\"><br>\n";
+  out += "</form>\n";
+  out += "<br>";
   
+
   out += "<button onclick=\"window.location.href='?CalA=\';\">ACC Calib</button>&emsp;\n";
   out += "<button onclick=\"window.location.href='?CalG=\';\">GYRO Calib</button>&emsp;\n";
   out += "<button onclick=\"window.location.href='?CommF1=\';\">WriteACC</button>&emsp;\n";
   out += "<br><br>";
+
+  out += "<div style='width:400px; height:400px; position:relative; margin:20px auto;'>\n";
   
+  // 左上のモーター (motor4)
+  out += "<div style='position:absolute; left:50px; top:50px;'>\n";
+  out += "<form method='post'>\n";
+  out += "M4 (LeftTop)<br>\n";
+  out += "<input type='number' name='motor4_correction' step='0.001' style='width:5em' value='" + String(motor_correction[3], 4) + "'><br>\n";
+  out += "<input type='submit' style='margin-top:5px;'>\n";
+  out += "</form></div>\n";
+  
+  // 右上のモーター (motor2)
+  out += "<div style='position:absolute; right:50px; top:50px;'>\n";
+  out += "<form method='post'>\n";
+  out += "M2 (RightTop)<br>\n";
+  out += "<input type='number' name='motor2_correction' step='0.001' style='width:5em' value='" + String(motor_correction[1], 4) + "'><br>\n";
+  out += "<input type='submit' style='margin-top:5px;'>\n";
+  out += "</form></div>\n";
+  
+  // 左下のモーター (motor3)
+  out += "<div style='position:absolute; left:50px; bottom:50px;'>\n";
+  out += "<form method='post'>\n";
+  out += "M3 (LeftBack)<br>\n";
+  out += "<input type='number' name='motor3_correction' step='0.001' style='width:5em' value='" + String(motor_correction[2], 4) + "'><br>\n";
+  out += "<input type='submit' style='margin-top:5px;'>\n";
+  out += "</form></div>\n";
+  
+  // 右下のモーター (motor1)
+  out += "<div style='position:absolute; right:50px; bottom:50px;'>\n";
+  out += "<form method='post'>\n";
+  out += "M1 (RightBack)<br>\n";
+  out += "<input type='number' name='motor1_correction' step='0.001' style='width:5em' value='" + String(motor_correction[0], 4) + "'><br>\n";
+  out += "<input type='submit' style='margin-top:5px;'>\n";
+  out += "</form></div>\n";
+  
+  // ×型の線
+  out += "<div style='position:absolute; left:50%; top:50%; transform:translate(-50%, -50%);'>\n";
+  out += "<div style='width:200px; height:4px; background:#666; transform:rotate(45deg);'></div>\n";
+  out += "<div style='width:200px; height:4px; background:#666; transform:rotate(-45deg);'></div>\n";
+  out += "</div>\n";
+  
+  out += "</div>\n";
+
   out += "</center></html>";
   server.send(200, "text/html", out);    
 }

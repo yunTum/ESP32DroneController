@@ -1,6 +1,6 @@
 
 uint16_t servo[6];
-int maxm = 1800; // for testing
+int maxm = 2500; // for testing
 #define minm 200 // for testing
 
 #define THRO_3V3_MIN 50
@@ -8,13 +8,19 @@ int maxm = 1800; // for testing
 
 #define PWM_FREQ 30000
 // モーターごとの補正係数を追加
-const float motor_correction[] = {
+// float motor_correction[] = {
+//   1.0, // RightBack
+//   1.0, // RightTop
+//   0.8, // LeftBack
+//   0.85  // LeftTop
+// };  // 必要に応じて調整
+float motor_correction[] = {
   1.0, // RightBack
-  1.0, // RightTop
-  1.0, // LeftBack
-  1.0  // LeftTop
+  0.93, // RightTop
+  0.798, // LeftBack
+  0.797  // LeftTop
 };  // 必要に応じて調整
-const float powerRate = 1.5;
+float powerRate = 0.85;
 
 void mix()
 {
@@ -26,10 +32,10 @@ void mix()
     float pitch_power = axisPID[PITCH] * 1.0;
     float yaw_power = axisPID[YAW] * 1.0;
 
-    float servo_power0 = - roll_power - pitch_power - yaw_power;
-    float servo_power1 = - roll_power + pitch_power + yaw_power;
-    float servo_power2 = roll_power - pitch_power + yaw_power;
-    float servo_power3 = roll_power + pitch_power - yaw_power;
+    float servo_power0 = - roll_power - pitch_power + yaw_power;  // RightBack
+    float servo_power1 = - roll_power + pitch_power - yaw_power;  // RightTop
+    float servo_power2 = + roll_power - pitch_power - yaw_power;  // LeftBack
+    float servo_power3 = + roll_power + pitch_power + yaw_power;  // LeftTop
 
     if(fmode){
       // モーター出力を計算（スロットル値に対する割合で調整）
@@ -39,10 +45,10 @@ void mix()
       servo[3] = constrain(thro + servo_power3, THRO_3V3_MIN, maxm);
     }
     else{
-      servo[0] = constrain(thro + servo_power0 * powerRate, THRO_3V3_MIN, maxm) * motor_correction[0];
-      servo[1] = constrain(thro + servo_power1 * powerRate, THRO_3V3_MIN, maxm) * motor_correction[1];
-      servo[2] = constrain(thro + servo_power2 * powerRate, THRO_3V3_MIN, maxm) * motor_correction[2];
-      servo[3] = constrain(thro + servo_power3 * powerRate, THRO_3V3_MIN, maxm) * motor_correction[3];
+      servo[0] = constrain(thro * motor_correction[0] + servo_power0 * powerRate, THRO_3V3_MIN, maxm);
+      servo[1] = constrain(thro * motor_correction[1] + servo_power1 * powerRate, THRO_3V3_MIN, maxm);
+      servo[2] = constrain(thro * motor_correction[2] + servo_power2 * powerRate, THRO_3V3_MIN, maxm);
+      servo[3] = constrain(thro * motor_correction[3] + servo_power3 * powerRate, THRO_3V3_MIN, maxm);
     }
   }
   else 
@@ -78,13 +84,15 @@ void initMot()
   ledcAttach(MotPin2, PWM_FREQ, 11); // PWM, 11-bit resolution
   ledcAttach(MotPin3, PWM_FREQ, 11); // PWM, 11-bit resolution
   ledcWrite(MotPin0, THRO_3V3_MIN);
-  ledcWrite(MotPin1, THRO_3V3_MIN);
-  ledcWrite(MotPin2, THRO_3V3_MIN);
-  ledcWrite(MotPin3, THRO_3V3_MIN);
-
-  delay(2000);
+  delay(1000);
   ledcWrite(MotPin0, 0);
+  ledcWrite(MotPin1, THRO_3V3_MIN);
+  delay(1000);
   ledcWrite(MotPin1, 0);
+  ledcWrite(MotPin2, THRO_3V3_MIN);
+  delay(1000);
   ledcWrite(MotPin2, 0);
+  ledcWrite(MotPin3, THRO_3V3_MIN);
+  delay(1000);
   ledcWrite(MotPin3, 0);
 }

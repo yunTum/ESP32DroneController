@@ -267,6 +267,10 @@ void GyroAcc_getADC() {
 
     GYRO_ORIENTATION(gyro_x_dps, gyro_y_dps, gyro_z_dps);
     GYRO_Common();
+
+    if (abs(GyroX) < 2) GyroX = 0.0001;
+    if (abs(GyroY) < 2) GyroY = 0.0001;
+    if (abs(GyroZ) < 2) GyroZ = 0.0001;
     
     // 加速度データの処理
     int16_t acc_x = (int16_t)((rawADC[7] << 8) | rawADC[6]);
@@ -281,6 +285,9 @@ void GyroAcc_getADC() {
     // 生の16ビット値をそのまま使用
     ACC_ORIENTATION(acc_x_g, acc_y_g, acc_z_g);
     ACC_Common();
+
+    if (abs(AccX) < 2) AccX = 0.0001;
+    if (abs(AccY) < 2) AccY = 0.0001;
 }
 
 void LSM6DSLTR_init() {
@@ -291,10 +298,10 @@ void LSM6DSLTR_init() {
     else Serial.println("LSM6DSLTR ID Failed");
 
     // センサーの高精度設定
-    i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL1_XL, ODR_XL_416Hz | ACC_SCALE);  // 加速度: ±4g, 416Hz, アンチエイリアシングフィルタ
-    i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL2_G, ODR_G_416Hz | GYRO_SCALE);   // ジャイロ: ±500dps, 416Hz
-    // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL1_XL, ODR_XL_208Hz | ACC_SCALE);  // 加速度: 208Hz
-    // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL2_G, ODR_G_208Hz | GYRO_SCALE);  // ジャイロ: 208Hz
+    // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL1_XL, ODR_XL_416Hz | ACC_SCALE);  // 加速度: ±4g, 416Hz, アンチエイリアシングフィルタ
+    // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL2_G, ODR_G_416Hz | GYRO_SCALE);   // ジャイロ: ±500dps, 416Hz
+    i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL1_XL, ODR_XL_208Hz | ACC_SCALE);  // 加速度: 208Hz
+    i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL2_G, ODR_G_208Hz | GYRO_SCALE);  // ジャイロ: 208Hz
     // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL1_XL, ODR_XL_26Hz | ACC_SCALE);
     // i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL2_G, ODR_G_26Hz | GYRO_SCALE);
     i2cWriteByte(LSM6DSLTR_ADDRESS, CTRL3_C, 0x44);   // BDU有効, アドレス自動インクリメント

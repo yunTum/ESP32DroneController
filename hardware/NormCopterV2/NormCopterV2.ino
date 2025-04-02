@@ -51,7 +51,7 @@ void setup()
   pinMode(CS_PIN, OUTPUT);
   digitalWrite(CS_PIN, HIGH);
   digitalWrite(LED_YELLOW, LOW);
-  // delay(5000);
+  delay(3000);
   
   // Init Modules
   initMot();
